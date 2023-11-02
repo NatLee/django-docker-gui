@@ -7,6 +7,10 @@ import django_rq
 from django.shortcuts import render, redirect
 from django.http import JsonResponse
 
+from rest_framework.views import APIView
+from rest_framework.response import Response
+
+
 from xterm.task import run_image_task
 from xterm.task import remove_image_task
 from xterm.task import run_container_task
@@ -19,26 +23,62 @@ def index(request):
     return response
         
 def containers(request):
-    client = docker.from_env()
-    return render(
-        request,
-        'containers.html',
-        {'containers':client.containers.list(all=True),'info':client.info()}
-    )
+    return render(request, 'containers.html')
 
 def images(request):
-    client = docker.from_env()
-    return render(request, 'images.html',{'images':client.images.list()})
+    return render(request, 'images.html')
 
-# to dynamicly update the content of django template without reloading 
-# TODO split front from back
-def ajax_images(request):
-    client = docker.from_env()
-    return render(request, 'ajaxImages.html',{'images':client.images.list()})
-        
-def ajax_containers(request):
-    client = docker.from_env()
-    return render(request, 'ajaxContainers.html',{'containers':client.containers.list(all=True),'info':client.info()})
+
+class ContainersListView(APIView):
+    def get(self, request, format=None):
+        client = docker.from_env()
+        containers = client.containers.list(all=True)
+
+        # Serialize the container data
+        container_data = []
+        for container in containers:
+            container_info = {
+                'id': container.id,
+                'name': container.name,
+                'status': container.status,
+                'command': container.attrs['Config']['Cmd'],
+                'short_id': container.short_id,
+                'image_tag': container.image.tags[0]
+            }
+            container_data.append(container_info)
+
+        # Serialize additional information if necessary
+        info = client.info()  # Transform this as needed
+
+        return Response({
+            'containers': container_data,
+            'info': info  # Ensure this is in a serializable format
+        })
+
+class ImagesListView(APIView):
+    def get(self, request, format=None):
+        client = docker.from_env()
+        images = client.images.list()
+
+        # Serialize the image data
+        image_data = []
+        for image in images:
+            name = image.tags[0] if image.tags else None
+            image_info = {
+                'id': image.id[7:],
+                'size': round(image.attrs['Size']/1048576, 2),
+                'short_id': image.short_id[7:],
+                'name': name
+            }
+            image_data.append(image_info)
+
+        # Serialize additional information if necessary
+        info = client.info()  # Transform this as needed
+
+        return Response({
+            'images': image_data,
+            'info': info  # Ensure this is in a serializable format
+        })
 
 def shell_console(request,id):
     client = docker.from_env()
