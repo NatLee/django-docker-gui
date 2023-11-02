@@ -11,9 +11,8 @@ def run_image_task(image_id):
         detach=True,
         tty=True,
     )
-    if len(container.image.tags) == 0:
-        image_name = "none"
-    else:
+    image_name = "none"
+    if container.image.tags:
         image_name = container.image.tags[0]
 
     container_name = container.attrs['Name'][1:]
