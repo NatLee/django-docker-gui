@@ -1,6 +1,18 @@
 # Custom ignore files
 
+log
+logs
+backend/staticfiles
+
 *.pid
+
+000*_*.py
+*_initial.py
+
+.vscode
+
+.DS_Store
+desktop.ini
 
 
 # Byte-compiled / optimized / DLL files
