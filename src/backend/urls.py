@@ -15,33 +15,81 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
+from django.urls import path, include, re_path
+
+from drf_yasg.views import get_schema_view
+from drf_yasg import openapi
+from drf_yasg.generators import OpenAPISchemaGenerator
+
+from rest_framework.permissions import AllowAny, IsAdminUser
+
+from rest_framework.routers import DefaultRouter
+
 from django.conf import settings
-from django.urls import path, include
 
-from xterm import views as xterms_views
+URL_PREFIX = 'api'
 
-urlpatterns = [
-    path('admin/', admin.site.urls),
-    path('', xterms_views.index, name='index'),
+urlpatterns = []
 
-    path('images', xterms_views.images, name='images'),
-    path('images/ajax', xterms_views.ajax_images, name='ajax-images'),
-    path('images/remove', xterms_views.remove_image, name='remove-image'),
-    path('images/run', xterms_views.run_image, name='run-image'),
-
-    path('containers', xterms_views.containers, name='containers'),
-    path('containers/ajax', xterms_views.ajax_containers, name='ajax-containers'),
-    path('containers/start-stop-remove', xterms_views.start_stop_remove, name='start-stop-remove'),
-
-    path('console/<slug:id>', xterms_views.shell_console, name='shell-console'),
-    path('attach/<slug:id>', xterms_views.attach_console, name='attach-console'),
-
-    path('browse', xterms_views.browse, name='browse'),
-
-    path('progress/<slug:task_id>', xterms_views.check_progress, name='check-progress'),
-
-    path('django-rq/', include('django_rq.urls'))
+# pages
+urlpatterns += [
+    # admin
+    path(f"{URL_PREFIX}/__hidden_admin/", admin.site.urls),
+    # django-rq
+    path(f'{URL_PREFIX}/__django-rq/', include('django_rq.urls'))
 ]
+
+
+urlpatterns += [
+    # google login
+    path(f"{URL_PREFIX}/auth/google/", include("custom_auth.urls")),
+    # auth
+    path(f"{URL_PREFIX}/auth/", include("custom_jwt.urls")),
+    # xterm
+    path("", include("xterm.urls"), name="xterm"),
+]
+
+# -------------- START - Swagger View --------------
+
+# Http & Https
+class BothHttpAndHttpsSchemaGenerator(OpenAPISchemaGenerator):
+    def get_schema(self, request=None, public=False):
+        schema = super().get_schema(request, public)
+        schema.schemes = ["http", "https"]
+        return schema
+
+schema_view = get_schema_view(
+    openapi.Info(
+        title="Backend service API",
+        default_version="v1",
+        description="API of backend services.",
+    ),
+    public=True,
+    # permission_classes=(AllowAny,),
+    permission_classes = (IsAdminUser,), #is_staff才可使用
+    generator_class=BothHttpAndHttpsSchemaGenerator,
+)
+# --------------- END - Swagger View ----------------
+
+
+urlpatterns += [
+    re_path(
+        r"^api/__hidden_swagger(?P<format>\.json|\.yaml)$",
+        schema_view.without_ui(cache_timeout=0),
+        name="schema-json",
+    ),
+    re_path(
+        r"^api/__hidden_swagger",
+        schema_view.with_ui("swagger", cache_timeout=0),
+        name="schema-swagger-ui",
+    ),
+    re_path(
+        r"^api/__hidden_redoc",
+        schema_view.with_ui("redoc", cache_timeout=0),
+        name="schema-redoc",
+    ),
+]
+
 
 from django.conf.urls.static import static
 urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

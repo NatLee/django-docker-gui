@@ -12,7 +12,7 @@ import socketio
 import eventlet
 import eventlet.wsgi
 
-from xterm.views import sio
+from xterm.consumer import sio
 
 from django.core.wsgi import get_wsgi_application
 
