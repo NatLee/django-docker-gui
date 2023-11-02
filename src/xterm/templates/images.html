@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+   <meta charset="utf-8">
+   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+   <title>Images</title>
+
+   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet"
+      integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
+   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js"
+      integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM"
+      crossorigin="anonymous"></script>
+   <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+
+   {% load static %}
+   <script src="{% static 'helper.js' %}"></script>
+
+
+</head>
+
+<body>
+
+   <nav class="navbar navbar-expand-sm navbar-dark bg-dark">
+      <div class="container-fluid">
+         <a class="navbar-brand fs-5">Docker on Demand V2</a>
+         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
+            aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+         </button>
+         <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav">
+               <li class="nav-item">
+                  <a class="nav-link" aria-current="page" href="/containers">Containers</a>
+               </li>
+               <li class="nav-item">
+                  <a class="nav-link active" href="/images">Images</a>
+               </li>
+               <li class="nav-item">
+                  <a class="nav-link" href="/browse">Docker Hub</a>
+               </li>
+            </ul>
+         </div>
+      </div>
+   </nav>
+
+   <div id="toastContainer" class="toast-container position-fixed p-3 top-0 end-0">
+   </div>
+
+   <div class="container">
+      <div class="mt-5 mx-5">
+
+         <!-- images -->
+         <div class="d-flex d-flex justify-content-between">
+            <h2>Images</h2>
+            <button class="btn btn-md btn-secondary" id="refresh" onclick="updatePage('/images/ajax')">Refresh</button>
+         </div>
+         <div class="table-responsive">
+            <table class="table">
+               <thead>
+                  <tr>
+                     <th scope="col">Repository</th>
+                     <th scope="col">Image Id</th>
+                     <th scope="col">Size</th>
+                     <th scope="col">Actions</th>
+                  </tr>
+               </thead>
+               <tbody id="content">
+
+                  {% include "ajaxImages.html" %}
+
+               </tbody>
+            </table>
+         </div>
+
+      </div>
+   </div>
+
+   <script>
+
+
+      function handleImageAction(html_btn, action) {
+         html_btn.innerHTML = "Loading...";
+
+         let image_id = html_btn.id;
+         let data = { 'image_id': image_id };
+
+         let url = action === 'run' ? '/images/run' : '/images/remove';
+         let csrftoken = '{{csrf_token}}';
+     
+         console.log(`${action.charAt(0).toUpperCase() + action.slice(1)} -> ${image_id}`);
+     
+         fetch(url, {
+             method: "POST",
+             body: JSON.stringify(data),
+             dataType: 'json',
+             headers: { "X-CSRFToken": csrftoken, 'Accept': 'application/json' }
+         }).then(response => {
+             return response.json();
+         }).then(data => {
+             console.log(data["task_id"]);
+             return getUpdate(data["task_id"]);
+         }).then(() => {
+             updatePage("/images/ajax");
+         });
+     }
+     
+   </script>
+</body>
+
+</html>

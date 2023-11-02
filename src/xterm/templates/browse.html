@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <!-- to hide terminal scrollbar-->
+  <style>
+    .xterm-viewport {
+      overflow: hidden !important;
+    }
+  </style>
+  <!-- Required meta tags -->
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <!-- Bootstrap CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet"
+    integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js"
+    integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM"
+    crossorigin="anonymous"></script>
+
+
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+
+  <!-- using and older version of terminal css to remove xterm-helper-textarea -->
+  <link rel="stylesheet" href="https://unpkg.com/xterm@3.6.0/dist/xterm.css" />
+
+  <script src="https://unpkg.com/xterm@4.11.0/lib/xterm.js"></script>
+  <script src="https://unpkg.com/xterm-addon-fit@0.5.0/lib/xterm-addon-fit.js"></script>
+
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.4.0/socket.io.js"></script>
+  <title>Docker Hub</title>
+</head>
+
+<body>
+
+  <nav class="navbar navbar-expand-sm navbar-dark bg-dark">
+    <div class="container-fluid">
+      <a class="navbar-brand fs-5">Docker on Demand V2</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
+        aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav">
+          <li class="nav-item">
+            <a class="nav-link" aria-current="page" href="/containers">Containers</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="/images">Images</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link active" href="/browse">Docker Hub</a>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container">
+
+    <form id="tfnewsearch" method="get" class="row g-3 my-3 ms-sm-3 justify-content-center ">
+      <div class="col-sm-6 col-9">
+        <input type="text" name="q" value="{{q}}" class="form-control" placeholder="Search Images on Docker Hub">
+      </div>
+      <div class="col-sm-1 col-3">
+        <button type="submit" class="btn btn-primary mb-3">Search</button>
+      </div>
+    </form>
+
+    <!----->
+
+    {% for item in summary %}
+    {% if item.certification_status != "certified" %}
+    <div class="d-flex justify-content-center ">
+      <div class="d-flex border-start border-primary border-5 p-4 shadow-lg  mb-4 bg-body rounded col-sm-8 col-12">
+
+        <div class="flex-shrink-0 me-4 align-self-center">
+          <img src="https://d1q6f0aelx0por.cloudfront.net/product-logos/library-{{item.name}}-logo.png?"
+            onerror="this.onerror=null; alt="no-image" width="60px"
+            height="60px">
+
+        </div>
+
+        <div class="col d-flex flex-column">
+          <h5>{{ item.name }}</h5>
+          <p>{{ item.short_description }}</p>
+        </div>
+
+        <!--d-flex col align-content-around justify-content-start justify-content-md-end -->
+        <div class="flex-shrink-0 d-flex  justify-content-center ms-2 ">
+
+          <div class="align-self-end">
+            <button type="button" class="btn btn-md btn-primary text-nowrap" data-bs-toggle="modal"
+              data-bs-target="#imageModal" data-bs-name="{{item.name}}">
+              Pull
+            </button>
+
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    {% endif %}
+    {% endfor %}
+
+  </div>
+
+
+
+
+  <!-- Modal -->
+  <div class="modal fade" id="imageModal" data-bs-backdrop="static" tabindex="-1" aria-labelledby="imageModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <!--<h5 class="modal-title" id="imageModalLabel">New message</h5> -->
+          <button type="button" id="btn-close" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+
+          <div class="d-flex">
+
+
+            <div class="d-flex justify-content-center col-6 align-items-center row g-2 ">
+              <div class="col-auto">
+                <label for="imageName" class="col-form-label">Image name: </label>
+              </div>
+              <div class="col-auto">
+                <input id="modal_input" class="form-control" type="text" readonly />
+              </div>
+            </div>
+
+            <div class="d-flex justify-content-center col-6 align-items-center row g-2">
+              <div class="col-auto">
+                <label class="col-form-label">Version: </label>
+              </div>
+
+              <div class="col-auto">
+                <input id="modal_input_version" class="form-control" type="text" placeholder="latest" />
+              </div>
+
+            </div>
+          </div>
+
+          <div class="d-flex mt-3 justify-content-center">
+            <button id="myBtn2" onclick="pull_image()" class="btn btn-primary">Pull</button>
+          </div>
+
+          <div class="py-2 ps-2 pe-3 d-none" style="background-color: black;" id="terminal"></div>
+
+        </div>
+
+        <div class="d-none mb-3 justify-content-evenly" id="modal_footer">
+          <div>
+            <button id="myBtn3" onclick="window.location.href = '/containers'" class="btn btn-primary">Go To
+              Containers</button>
+          </div>
+          <div>
+            <button id="myBtn4" onclick="window.location.href = '/images'" class="btn btn-primary">Go To
+              Images</button>
+          </div>
+          <div>
+            <button id="myBtn5" data-bs-dismiss="modal" class="btn btn-primary">Continue
+              browsing</button>
+          </div>
+        </div>
+
+
+
+      </div>
+    </div>
+  </div>
+
+
+
+
+
+  <!-- to pass data to modal-->
+  <script type="text/javascript">
+    var imageModal = document.getElementById('imageModal')
+    imageModal.addEventListener('show.bs.modal', function (event) {
+      // Button that triggered the modal
+      var button = event.relatedTarget
+      // Extract info from data-bs-* attributes
+      var recipient = button.getAttribute('data-bs-name')
+
+      var modalBodyInput = imageModal.querySelector('.modal-body input')
+      modalBodyInput.value = recipient
+    })
+
+  </script>
+
+
+  <script type="text/javascript">
+
+    var term = new Terminal({
+      cursorBlink: true,
+    });
+
+    const fit = new FitAddon.FitAddon();
+    term.loadAddon(fit);
+
+    open_once_only = true;
+
+    // on modal animation close
+    $('#imageModal').on('hidden.bs.modal', function () {
+      // clear terminal text
+      term.write('\x1b[H\x1b[2J');
+
+      $("#modal_footer").removeClass('d-flex').addClass('d-none');
+      $("#myBtn2").removeClass('d-none').addClass('d-flex');
+      $("#terminal").addClass('d-none');
+
+      term.write('\x1b[H\x1b[2J');
+    });
+
+    function fitToscreen() {
+      fit.fit();
+      // for this use case, i dont really need to send new dimensions
+      //const dims = { cols: term.cols, rows: term.rows };
+      //console.log("sending new dimensions to server's pty", dims);
+      //socket.emit("resize", dims);
+    }
+
+    function debounce(wait_ms) {
+      let timeout;
+      return function () {
+        clearTimeout(timeout);
+        timeout = setTimeout(function () { fitToscreen() }, wait_ms);
+      };
+    }
+
+    const wait_ms = 50;
+    window.onresize = debounce(wait_ms);
+
+    function pull_image() {
+
+      let image = document.getElementById("modal_input").value;
+      let version = document.getElementById("modal_input_version").value;
+
+      if (version === "") {
+        version = "latest";
+      }
+
+      $("#myBtn2").removeClass('d-flex').addClass('d-none');
+
+      $("#terminal").removeClass('d-none');
+
+      // open terminal only once
+      if (open_once_only) {
+        term.open(document.getElementById('terminal'));
+        fit.fit()
+        open_once_only = false;
+      }
+
+      var socket = io.connect({transports: ["websocket", "polling"]});
+
+      socket.on("connect", () => {
+        term.write("Pulling image, please wait...\r\n")
+        $("#btn-close").addClass('disabled');
+
+      })
+
+      socket.emit("pull_image_input", { "image": image, "version": version })
+
+      socket.on("pull_image_output", (message) => {
+        console.log(message["status"], "aaa", message["progress"])
+        term.write(message["status"] + message["progress"] + "\r\n")
+      });
+
+      socket.on("disconnect", () => {
+        console.log("DONE")
+        term.write("\r\nDone")
+        $("#modal_footer").removeClass('d-none').addClass('d-flex');
+        $("#btn-close").removeClass('disabled');
+
+      })
+
+    }
+
+  </script>
+
+</body>
+
+</html>
