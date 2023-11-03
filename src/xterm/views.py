@@ -90,12 +90,18 @@ class ConsoleView(APIView):
     def get(self, request, id, action):
         client = docker.from_env()
         container = client.containers.get(id)
+        commands = container.attrs['Config']['Cmd']
+        if not commands:
+            command = None
+        else:
+            command = ' '.join(commands)
+
         return Response({
             'id': id,
             'container_name': container.attrs['Name'][1:],  # Remove the leading "/"
             'image': container.attrs['Config']['Image'],
             'short_id': container.short_id,
-            'command': container.attrs['Config']['Cmd'][0],
+            'command': command,
             'action': action
         })
 
@@ -112,21 +118,20 @@ def browse(request):
 
 @api_view(['POST'])
 def run_image(request):
-    image_id = json.load(request)['image_id']
+    image_id = request.data['image_id']
     job = run_image_task.delay(image_id)  # Queue the job
     return JsonResponse({"task_id": job.id})  # Use job.id to get the job ID
 
 @api_view(['POST'])
 def remove_image(request):
-    image_id = json.load(request)['image_id']
+    image_id = request.data['image_id']
     job = remove_image_task.delay(image_id)
     return JsonResponse({"task_id": job.id})  # Use job.id here as well
 
 @api_view(['POST'])
 def start_stop_remove(request):
-    json_data = json.load(request)
-    cmd = json_data['cmd']
-    _id = json_data['id']
+    cmd = request.data['cmd']
+    _id = request.data['id']
 
     if cmd == "start":
         job = run_container_task.delay(_id)
@@ -136,7 +141,7 @@ def start_stop_remove(request):
         job = remove_container_task.delay(_id)
     return JsonResponse({"task_id": job.id})
 
-@api_view(['GET'])
+
 def check_progress(request, task_id):
     queue = django_rq.get_queue('default')
     job = queue.fetch_job(task_id)
