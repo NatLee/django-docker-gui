@@ -1,161 +1,33 @@
-<!doctype html>
-<html lang="en">
+{% extends 'base.html' %}
 
-<head>
-   <meta charset="utf-8">
-   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+{% block title %}Containers{% endblock %}
 
-   <title>Containers</title>
-
-   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet"
-      integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
-   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js"
-      integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM"
-      crossorigin="anonymous"></script>
-   <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
-
-   {% load static %}
-   <script src="{% static 'helper.js' %}"></script>
-
-</head>
-
-<body>
-
-   <nav class="navbar navbar-expand-sm navbar-dark bg-dark">
-      <div class="container-fluid">
-         <a class="navbar-brand fs-5">Docker on Demand V2</a>
-         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
-            aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-            <span class="navbar-toggler-icon"></span>
-         </button>
-         <div class="collapse navbar-collapse" id="navbarNav">
-            <ul class="navbar-nav">
-               <li class="nav-item">
-                  <a class="nav-link active" aria-current="page" href="/containers">Containers</a>
-               </li>
-               <li class="nav-item">
-                  <a class="nav-link" href="/images">Images</a>
-               </li>
-               <li class="nav-item">
-                  <a class="nav-link" href="/browse">Docker Hub</a>
-               </li>
-            </ul>
-         </div>
-      </div>
-   </nav>
-
-   <div id="toastContainer" class="toast-container position-fixed p-3 top-0 end-0">
+{% block content %}
+<div class="mx-5">
+   <div class="d-flex justify-content-between align-items-center mb-3">
+      <h2>Containers</h2>
+      <button class="btn btn-secondary" id="refresh" onclick="fetchAndDisplayContainers()">Refresh</button>
    </div>
-
-   <div class="container">
-      <div class="mt-5 mx-5">
-         <div class="d-flex d-flex justify-content-between">
-            <h2>Containers</h2>
-            <button class="btn btn-md btn-secondary" id="refresh" onclick="fetchAndDisplayContainers()">Refresh</button>
-         </div>
-         <div class="table-responsive">
-            <table class="table">
-               <thead>
-                  <tr>
-                     <th scope="col">Name</th>
-                     <th scope="col">Image</th>
-                     <th scope="col">ID</th>
-                     <th scope="col">Cmd</th>
-                     <th scope="col">Status</th>
-                     <th scope="col">Actions</th>
-                  </tr>
-               </thead>
-               <tbody id="containerTableBody">
-               </tbody>
-            </table>
-         </div>
-
-      </div>
+   <div class="table-responsive">
+      <table class="table">
+         <thead>
+            <tr>
+               <th scope="col">Name</th>
+               <th scope="col">Image</th>
+               <th scope="col">ID</th>
+               <th scope="col">Cmd</th>
+               <th scope="col">Status</th>
+               <th scope="col">Actions</th>
+            </tr>
+         </thead>
+         <tbody id="containerTableBody">
+         </tbody>
+      </table>
    </div>
-   <script>
+</div>
+{% endblock %}
 
-      function handleContainerAction(html_btn, cmd) {
-
-         html_btn.innerHTML = "Loading...";
-         containerID = html_btn.dataset.id;
-         
-         let url = '/api/containers/start-stop-remove'
-         let data = { 'id': containerID, 'cmd': cmd };
-         let csrftoken = '{{csrf_token}}'
-
-         //console.log(cmd + "->" + containerID);
-
-         fetch(url, {
-            method: "POST",
-            body: JSON.stringify(data),
-            dataType: 'json',
-            headers: { "X-CSRFToken": csrftoken },
-
-         }).then(response => {
-            return response.json();
-
-         }).then(data => {
-            console.log(data["task_id"])
-            return getUpdate(data["task_id"])
-
-         }).then(() => {
-            fetchAndDisplayContainers();
-         })
-      }
-
-      function fetchAndDisplayContainers() {
-         fetch('/api/containers')
-             .then(response => response.json())
-             .then(data => {
-                 const containers = data.containers;
-                 const table = document.getElementById('containerTableBody');
-                 table.innerHTML = '';
-     
-                 containers.forEach(item => {
-                     let actionButtons = '';
-     
-                     if (item.status === "running") {
-                         actionButtons = `
-                             <button class="btn btn-info btn-sm me-3" onclick="window.open('/console/shell/${item.id}')">Console</button>
-                             <button class="btn btn-info btn-sm me-3" onclick="window.open('/console/attach/${item.id}')">Attach</button>
-                             <button data-id="${item.id}" class="btn btn-warning btn-sm" onclick="handleContainerAction(this, 'stop')">Stop</button>
-                         `;
-                     } else {
-                         actionButtons = `
-                             <button data-id="${item.id}" class="btn btn-success btn-sm me-3" onclick="handleContainerAction(this, 'start')">Start</button>
-                             <button data-id="${item.id}" class="btn btn-danger btn-sm" onclick="handleContainerAction(this, 'remove')">Remove</button>
-                         `;
-                     }
-     
-                     const row = `
-                     <tr>
-                         <td>${item.name}</td>
-                         <td>${item.image_tag || '&lt;none&gt;'}</td>
-                         <td>${item.short_id}</td>
-                         <td>${item.command}</td>
-                         <td>
-                             <div class='d-flex'>
-                                 <span class="btn ${item.status === "running" ? 'btn-success' : 'btn-secondary'} btn-sm" id="${item.id}-span">${item.status}</span>
-                             </div>
-                         </td>
-                         <td>
-                             <div class='d-flex'>
-                                 ${actionButtons}
-                             </div>
-                         </td>
-                     </tr>`;
-                     table.innerHTML += row;
-                 });
-             })
-             .catch(error => {
-                 console.error('Error fetching container data:', error);
-             });
-     }
-
-
-      document.addEventListener('DOMContentLoaded', fetchAndDisplayContainers);
-
-      </script>
-</body>
-
-</html>
+{% block scripts %}
+{% load static %}
+<script src="{% static 'js/containers.js' %}"></script>
+{% endblock %}
