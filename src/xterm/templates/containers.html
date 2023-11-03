@@ -116,8 +116,8 @@
      
                      if (item.status === "running") {
                          actionButtons = `
-                             <button class="btn btn-info btn-sm me-3" onclick="window.open('/console/${item.id}')">Console</button>
-                             <button class="btn btn-info btn-sm me-3" onclick="window.open('/attach/${item.id}')">Attach</button>
+                             <button class="btn btn-info btn-sm me-3" onclick="window.open('/console/shell/${item.id}')">Console</button>
+                             <button class="btn btn-info btn-sm me-3" onclick="window.open('/console/attach/${item.id}')">Attach</button>
                              <button data-id="${item.id}" class="btn btn-warning btn-sm" onclick="handleContainerAction(this, 'stop')">Stop</button>
                          `;
                      } else {
