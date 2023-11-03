@@ -134,8 +134,23 @@
   
     }
 
-    const containerID = location.pathname.split('/')[3];
-    const action = location.pathname.split('/')[2];
+    function getPathSegments() {
+      // This function assumes the pathname follows a specific pattern, e.g., "/api/action/containerID"
+      const segments = window.location.pathname.split('/').filter(Boolean);
+    
+      // Additional checks can be added here to ensure that segments[1] and segments[2] exist
+      if (segments.length < 3) {
+        console.error('Unexpected pathname format:', window.location.pathname);
+        return { action: null, containerID: null };
+      }
+    
+      return {
+        action: segments[1],
+        containerID: segments[2],
+      };
+    }
+
+    const { action, containerID } = getPathSegments();
 
     console.log(`Container ID:` + containerID);
     console.log(`Action:` + action);
