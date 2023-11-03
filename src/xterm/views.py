@@ -9,7 +9,7 @@ from django.http import JsonResponse
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
-
+from rest_framework.decorators import api_view
 
 from xterm.task import run_image_task
 from xterm.task import remove_image_task
@@ -18,16 +18,22 @@ from xterm.task import remove_container_task
 from xterm.task import stop_container_task
 
 
+@api_view(['GET'])
 def index(request):
     response = redirect('/containers')
     return response
-        
+
+@api_view(['GET'])
 def containers(request):
     return render(request, 'containers.html')
 
+@api_view(['GET'])
 def images(request):
     return render(request, 'images.html')
 
+@api_view(['GET'])
+def console(request, id):
+    return render(request, 'console.html')
 
 class ContainersListView(APIView):
     def get(self, request, format=None):
@@ -80,16 +86,20 @@ class ImagesListView(APIView):
             'info': info  # Ensure this is in a serializable format
         })
 
-def shell_console(request,id):
-    client = docker.from_env()
-    container = client.containers.get(id)
-    return render(request,'console.html',{'id':id, 'container':container, 'action': 'shell'})
+class ConsoleView(APIView):
+    def get(self, request, id, action):
+        client = docker.from_env()
+        container = client.containers.get(id)
+        return Response({
+            'id': id,
+            'container_name': container.attrs['Name'][1:],  # Remove the leading "/"
+            'image': container.attrs['Config']['Image'],
+            'short_id': container.short_id,
+            'command': container.attrs['Config']['Cmd'][0],
+            'action': action
+        })
 
-def attach_console(request,id):
-    client = docker.from_env()
-    container = client.containers.get(id)
-    return render(request,'console.html',{'id':id, 'container':container, 'action': 'attach'})
-
+@api_view(['GET'])
 def browse(request):
     page_number = request.GET.get('page','1')
     q = request.GET.get('q','')
@@ -100,32 +110,33 @@ def browse(request):
     summary = page.json()['summaries']
     return render(request, 'browse.html', {'summary': summary,'q':q})
 
+@api_view(['POST'])
 def run_image(request):
-    if request.method == 'POST':
-        image_id = json.load(request)['image_id']
-        job = run_image_task.delay(image_id)  # Queue the job
-        return JsonResponse({"task_id": job.id})  # Use job.id to get the job ID
+    image_id = json.load(request)['image_id']
+    job = run_image_task.delay(image_id)  # Queue the job
+    return JsonResponse({"task_id": job.id})  # Use job.id to get the job ID
 
+@api_view(['POST'])
 def remove_image(request):
-    if request.method == 'POST':
-        image_id = json.load(request)['image_id']
-        job = remove_image_task.delay(image_id)
-        return JsonResponse({"task_id": job.id})  # Use job.id here as well
+    image_id = json.load(request)['image_id']
+    job = remove_image_task.delay(image_id)
+    return JsonResponse({"task_id": job.id})  # Use job.id here as well
 
+@api_view(['POST'])
 def start_stop_remove(request):
-    if request.method == 'POST':
-        json_data = json.load(request)
-        cmd = json_data['cmd']
-        _id = json_data['id']
+    json_data = json.load(request)
+    cmd = json_data['cmd']
+    _id = json_data['id']
 
-        if cmd == "start":
-            job = run_container_task.delay(_id)
-        elif cmd == "stop":
-            job = stop_container_task.delay(_id)
-        elif cmd == "remove":
-            job = remove_container_task.delay(_id)
-        return JsonResponse({"task_id": job.id})
+    if cmd == "start":
+        job = run_container_task.delay(_id)
+    elif cmd == "stop":
+        job = stop_container_task.delay(_id)
+    elif cmd == "remove":
+        job = remove_container_task.delay(_id)
+    return JsonResponse({"task_id": job.id})
 
+@api_view(['GET'])
 def check_progress(request, task_id):
     queue = django_rq.get_queue('default')
     job = queue.fetch_job(task_id)

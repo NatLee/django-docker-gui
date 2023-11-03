@@ -17,8 +17,10 @@ urlpatterns = [
     path('api/containers', views.ContainersListView.as_view(), name='containers-api'),
     path('api/containers/start-stop-remove', views.start_stop_remove, name='start-stop-remove'),
 
-    path('console/<slug:id>', views.shell_console, name='shell-console'),
-    path('attach/<slug:id>', views.attach_console, name='attach-console'),
+    path('api/console/<str:action>/<str:id>', views.ConsoleView.as_view(), name='console'),
+
+    path('console/shell/<slug:id>', views.console, name='shell-console'),
+    path('console/attach/<slug:id>', views.console, name='attach-console'),
 
     path('browse', views.browse, name='browse'),
 
