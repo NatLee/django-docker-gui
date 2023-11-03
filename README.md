@@ -4,8 +4,6 @@
 
 A simple web UI for managing docker containers & images and interacting with using a fully functional terminal.
 
-This repo is modified from [docker-django-ui](https://github.com/MahmoudAlyy/docker-django-ui).
-
 # Usage
 
 > Docker daemon must be running.
@@ -13,4 +11,14 @@ This repo is modified from [docker-django-ui](https://github.com/MahmoudAlyy/doc
 ```
 docker-compose up
 ```
+
+And go to http://localhost:8000, it will show the containers!
+
+# Reference
+
+This repo is modified from [docker-django-ui](https://github.com/MahmoudAlyy/docker-django-ui).
+
+# License
+
+[MIT](./LICENSE)
 
