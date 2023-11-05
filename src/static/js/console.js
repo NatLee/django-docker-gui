@@ -3,22 +3,37 @@ function getDisplayValue(value, defaultValue = 'N/A') {
     return value ? value : defaultValue;
 }
 
-// Better error handling with SweetAlert
 const showError = (error) => {
     Swal.fire({
         title: 'Error!',
         text: error.toString(),
         icon: 'error',
         confirmButtonText: 'OK'
+    }).then((result) => {
+        // Redirect to login page after user clicks 'OK'
+        if (result.isConfirmed || result.isDismissed) {
+            window.location.href = '/login';
+        }
     });
- };
+};
 
 async function loadConsoleData(containerID, action) {
     try {
-        const response = await fetch(`/api/console/${action}/${containerID}`);
+        // Retrieve the JWT from local storage
+        const accessToken = localStorage.getItem('accessToken');
+
+        // Include the JWT in the authorization header
+        const response = await fetch(`/api/console/${action}/${containerID}`, {
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${accessToken}`
+            }
+        });
+
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
+
         const data = await response.json();
         // Use the utility function to ensure no "null" values are displayed.
         const containerInfo = `Container Info: ${getDisplayValue(data.container_name)} || ${getDisplayValue(data.image)} || ${getDisplayValue(data.short_id)} || ${getDisplayValue(data.command)}`;
@@ -28,6 +43,7 @@ async function loadConsoleData(containerID, action) {
         showError(error);
     }
 }
+
 
 function setupWebSocketConnection(containerID, action){
     Terminal.applyAddon(fit);

@@ -5,17 +5,20 @@ function handleContainerAction(html_btn, cmd) {
     let url = '/api/containers/start-stop-remove'
     let data = { 'id': containerID, 'cmd': cmd };
     //console.log(cmd + "->" + containerID);
-    const csrftoken = getCookie('csrftoken'); // Get CSRF token from cookies
+
+    // Retrieve the JWT from local storage
+    const accessToken = localStorage.getItem('accessToken');
+
     fetch(url, {
        method: "POST",
        body: JSON.stringify(data),
        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRFToken': csrftoken
+           'Content-Type': 'application/json',
+           'Authorization': `Bearer ${accessToken}`
       },
     }).then(response => {
        if (!response.ok) {
-           throw new Error(`HTTP error! status: ${response.status}`);
+           window.location.href = '/login';
        }
        return response.json();    
     }).then(data => {
@@ -27,7 +30,17 @@ function handleContainerAction(html_btn, cmd) {
  }
 
  function fetchAndDisplayContainers() {
-    fetch('/api/containers')
+
+     // Retrieve the JWT from local storage
+     const accessToken = localStorage.getItem('accessToken');
+
+     fetch('/api/containers', {
+         method: "GET",
+         headers: {
+             'Content-Type': 'application/json',
+             'Authorization': `Bearer ${accessToken}`
+         },
+     })
         .then(response => response.json())
         .then(data => {
             const containers = data.containers;

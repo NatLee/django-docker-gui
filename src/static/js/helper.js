@@ -1,17 +1,21 @@
 
-function updatePage(ajaxURL) {
-   document.getElementById('refresh').innerHTML = "Loading...";
+async function verifyAccessToken() {
+   const accessToken = localStorage.getItem('accessToken');
+   if (!accessToken) {
+      window.location.href = '/login';
+   }
+   const response = await fetch('/api/auth/token/verify', {
+      method: 'POST',
+      headers: {
+         'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ token: accessToken })
+   });
 
-   fetch(ajaxURL, {
-      method: "GET",
-   }).then((response) => {
-      return response.text()
-   }).then((html) => {
-      document.getElementById('refresh').innerHTML = "Refresh";
-      document.getElementById('content').innerHTML = html;
-   })
+   if (!response.ok) {
+      window.location.href = '/login';
+   }
 }
-
 
 function uniqueID() {
    return Math.floor(Math.random() * Date.now())
@@ -48,20 +52,25 @@ function createToastAlert(msg, isFailure) {
    }, 5000);
 }
 
-
 function sleep(ms) {
    return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-
 async function getUpdate(task_id) {
    var flag = true;
    let progressUrl = '/progress';
+   const accessToken = localStorage.getItem('accessToken');
 
    while (flag) {
 
       await sleep(2000);
-      await fetch(progressUrl + `/` + task_id)
+      await fetch(progressUrl + `/` + task_id, {
+         "method": "GET",
+         "headers": {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${accessToken}`
+         }
+      })
          .then(response => response.json())
          .then(data => {
             console.log(data)
@@ -89,20 +98,9 @@ async function getUpdate(task_id) {
    return
 }
 
-function getCookie(name) {
-   let cookieValue = null;
-   if (document.cookie && document.cookie !== '') {
-       const cookies = document.cookie.split(';');
-       for (let i = 0; i < cookies.length; i++) {
-           const cookie = cookies[i].trim();
-           // Does this cookie string begin with the name we want?
-           if (cookie.substring(0, name.length + 1) === (name + '=')) {
-               cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-               break;
-           }
-       }
-   }
-   return cookieValue;
-}
 
+// ---------------------------------------
+// check token on page load
+verifyAccessToken();
+// ---------------------------------------
 
