@@ -2,7 +2,9 @@ version: "3.3"
    
 services:
   backend:
-    build: .
+    build:
+      context: .
+      dockerfile: ./Dockerfile
     image: d-docker-web
     container_name: d-docker-web
     entrypoint: /src/docker-entrypoint.sh
