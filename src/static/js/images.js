@@ -9,14 +9,17 @@ function handleImageAction(html_btn, action) {
     let url = action === 'run' ? '/api/images/run' : '/api/images/remove';
 
     console.log(`${action.charAt(0).toUpperCase() + action.slice(1)} -> ${image_id}`);
-    const csrftoken = getCookie('csrftoken'); // Get CSRF token from cookies
+
+    // Retrieve the JWT from local storage
+    const accessToken = localStorage.getItem('accessToken');
+
     fetch(url, {
        method: "POST",
        body: JSON.stringify(data),
        mode: 'same-origin',
        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRFToken': csrftoken
+           'Content-Type': 'application/json',
+           'Authorization': `Bearer ${accessToken}`
       },
     }).then(response => {
        if (!response.ok) {
@@ -32,38 +35,48 @@ function handleImageAction(html_btn, action) {
 }
 
 function fetchAndDisplayImages() {
- fetch('/api/images')
-     .then(response => response.json())
-     .then(data => {
-         const images = data.images;
-         const table = document.getElementById('imageTableBody');
-         table.innerHTML = '';
 
-         images.forEach(item => {
-             let actionButtons = '';
+    // Retrieve the JWT from local storage
+    const accessToken = localStorage.getItem('accessToken');
 
-             actionButtons = `
-                <button data-id="${item.short_id}" class="btn btn-success btn-sm me-3" onclick="handleImageAction(this, 'run')">Run</button>
-                <button data-id="${item.short_id}" class="btn btn-danger btn-sm" onclick="handleImageAction(this, 'remove')">Remove</button>
-             `;
+    fetch('/api/images', {
+        method: "GET",
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${accessToken}`
+        },
+    })
+        .then(response => response.json())
+        .then(data => {
+            const images = data.images;
+            const table = document.getElementById('imageTableBody');
+            table.innerHTML = '';
 
-             const row = `
-             <tr>
-                 <td>${item.name}</td>
-                 <td>${item.short_id}</td>
-                 <td>${item.size} MB</td>
-                 <td>
-                     <div class='d-flex'>
-                         ${actionButtons}
-                     </div>
-                 </td>
-             </tr>`;
-             table.innerHTML += row;
-         });
-     })
-     .catch(error => {
-         console.error('Error fetching image data:', error);
-     });
+            images.forEach(item => {
+                let actionButtons = '';
+
+                actionButtons = `
+                    <button data-id="${item.short_id}" class="btn btn-success btn-sm me-3" onclick="handleImageAction(this, 'run')">Run</button>
+                    <button data-id="${item.short_id}" class="btn btn-danger btn-sm" onclick="handleImageAction(this, 'remove')">Remove</button>
+                `;
+
+                const row = `
+                <tr>
+                    <td>${item.name}</td>
+                    <td>${item.short_id}</td>
+                    <td>${item.size} MB</td>
+                    <td>
+                        <div class='d-flex'>
+                            ${actionButtons}
+                        </div>
+                    </td>
+                </tr>`;
+                table.innerHTML += row;
+            });
+        })
+        .catch(error => {
+            console.error('Error fetching image data:', error);
+        });
 }
 
 document.addEventListener('DOMContentLoaded', fetchAndDisplayImages);

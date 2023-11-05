@@ -31,6 +31,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.4.0/socket.io.js"></script>
 
   {% load static %}
+  <script src="{% static 'js/helper.js' %}"></script>
   <link rel="stylesheet" href="{% static 'styles/main.css' %}">
 
   <title>Docker Hub</title>
@@ -38,81 +39,21 @@
 
 <body>
 
-  <nav class="navbar navbar-expand-sm navbar-dark bg-dark">
-    <div class="container-fluid">
-      <a class="navbar-brand fs-5">Django Docker GUI</a>
-      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
-        aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-        <span class="navbar-toggler-icon"></span>
-      </button>
-      <div class="collapse navbar-collapse" id="navbarNav">
-        <ul class="navbar-nav">
-          <li class="nav-item">
-            <a class="nav-link" aria-current="page" href="/containers">Containers</a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link" href="/images">Images</a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link active" href="/browse">Docker Hub</a>
-          </li>
-        </ul>
-      </div>
-    </div>
-  </nav>
+  {% include 'navbar.html' %}
 
-  <div class="container">
+  <div class="search-container">
 
-    <form id="tfnewsearch" method="get" class="row g-3 my-3 ms-sm-3 justify-content-center ">
+    <form id="searchForm" method="get" class="row g-3 my-3 ms-sm-3 justify-content-center ">
       <div class="col-sm-6 col-9">
-        <input type="text" name="q" value="{{q}}" class="form-control" placeholder="Search Images on Docker Hub">
+        <input type="text" name="q" value="" class="form-control" placeholder="Search Images on Docker Hub">
       </div>
       <div class="col-sm-1 col-3">
         <button type="submit" class="btn btn-primary mb-3">Search</button>
       </div>
     </form>
-
-    <!----->
-
-    {% for item in summary %}
-    {% if item.certification_status != "certified" %}
-    <div class="d-flex justify-content-center ">
-      <div class="d-flex border-start border-primary border-5 p-4 shadow-lg  mb-4 bg-body rounded col-sm-8 col-12">
-
-        <div class="flex-shrink-0 me-4 align-self-center">
-          <img src="https://d1q6f0aelx0por.cloudfront.net/product-logos/library-{{item.name}}-logo.png?"
-            onerror="this.onerror=null; alt="no-image" width="60px"
-            height="60px">
-
-        </div>
-
-        <div class="col d-flex flex-column">
-          <h5>{{ item.name }}</h5>
-          <p>{{ item.short_description }}</p>
-        </div>
-
-        <!--d-flex col align-content-around justify-content-start justify-content-md-end -->
-        <div class="flex-shrink-0 d-flex  justify-content-center ms-2 ">
-
-          <div class="align-self-end">
-            <button type="button" class="btn btn-md btn-primary text-nowrap" data-bs-toggle="modal"
-              data-bs-target="#imageModal" data-bs-name="{{item.name}}">
-              Pull
-            </button>
-
-          </div>
-
-        </div>
-      </div>
+    <div class="container">
     </div>
-
-    {% endif %}
-    {% endfor %}
-
   </div>
-
-
-
 
   <!-- Modal -->
   <div class="modal fade" id="imageModal" data-bs-backdrop="static" tabindex="-1" aria-labelledby="imageModalLabel"
@@ -150,7 +91,7 @@
           </div>
 
           <div class="d-flex mt-3 justify-content-center">
-            <button id="myBtn2" onclick="pull_image()" class="btn btn-primary">Pull</button>
+            <button id="pullImageBtn" onclick="pull_image()" class="btn btn-primary">Pull</button>
           </div>
 
           <div class="py-2 ps-2 pe-3 d-none" style="background-color: black;" id="terminal"></div>
@@ -171,16 +112,9 @@
               browsing</button>
           </div>
         </div>
-
-
-
       </div>
     </div>
   </div>
-
-
-
-
 
   <!-- to pass data to modal-->
   <script type="text/javascript">
@@ -194,9 +128,86 @@
       var modalBodyInput = imageModal.querySelector('.modal-body input')
       modalBodyInput.value = recipient
     })
-
   </script>
 
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const searchForm = document.getElementById('searchForm');
+    
+      searchForm.addEventListener('submit', function(event) {
+        event.preventDefault();
+        const queryValue = document.querySelector('[name="q"]').value;
+        fetchDockerHubData(queryValue);
+      });
+    });
+    
+    async function fetchDockerHubData(query) {
+      // Retrieve the JWT from local storage
+      const accessToken = localStorage.getItem('accessToken');
+
+      const response = await fetch(`/api/browse?q=${encodeURIComponent(query)}`, {
+        method: "GET",
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${accessToken}`
+        }
+      });
+
+      if (!response.ok) {
+        console.error('Failed to fetch data:', response.statusText);
+        return;
+      }
+    
+      const data = await response.json();
+      updateDOM(data.summary);
+    }
+    
+    function updateDOM(summary) {
+      const container = document.querySelector('.container');
+      // Clear existing content
+      container.innerHTML = '';
+    
+      // Build and append new elements
+      summary.forEach(item => {
+        if (item.certification_status !== "certified") {
+          const itemContainer = document.createElement('div');
+          itemContainer.className = 'd-flex justify-content-center';
+    
+          // Determine the image URL
+          const imageUrl = item.logo_url.large || item.logo_url.small || '';
+          let imageHTML = '';
+    
+          // If there is an image URL, create the image element
+          if (imageUrl) {
+            imageHTML = `<img src="${imageUrl}" onerror="this.onerror=null; this.style.display='none';" alt="image" width="60px" height="60px">`;
+          }
+    
+          itemContainer.innerHTML = `
+            <div class="d-flex border-start border-primary border-5 p-4 shadow-lg mb-4 bg-body rounded col-sm-8 col-12">
+              <div class="flex-shrink-0 me-4 align-self-center">
+                ${imageHTML}
+              </div>
+              <div class="col d-flex flex-column">
+                <h5>${item.name}</h5>
+                <p>${item.short_description || 'No description available.'}</p>
+              </div>
+              <div class="flex-shrink-0 d-flex justify-content-center ms-2">
+                <div class="align-self-end">
+                  <button type="button" class="btn btn-md btn-primary text-nowrap" data-bs-toggle="modal" data-bs-target="#imageModal" data-bs-name="${item.name}">Pull</button>
+                </div>
+              </div>
+            </div>
+          `;
+    
+          container.appendChild(itemContainer);
+        }
+      });
+    }
+
+    // first query in page loading
+    fetchDockerHubData('');
+
+    </script>
 
   <script type="text/javascript">
 
@@ -215,7 +226,7 @@
       term.write('\x1b[H\x1b[2J');
 
       $("#modal_footer").removeClass('d-flex').addClass('d-none');
-      $("#myBtn2").removeClass('d-none').addClass('d-flex');
+      $("#pullImageBtn").removeClass('d-none').addClass('d-flex');
       $("#terminal").addClass('d-none');
 
       term.write('\x1b[H\x1b[2J');
@@ -223,10 +234,6 @@
 
     function fitToscreen() {
       fit.fit();
-      // for this use case, i dont really need to send new dimensions
-      //const dims = { cols: term.cols, rows: term.rows };
-      //console.log("sending new dimensions to server's pty", dims);
-      //socket.emit("resize", dims);
     }
 
     function debounce(wait_ms) {
@@ -249,7 +256,7 @@
         version = "latest";
       }
 
-      $("#myBtn2").removeClass('d-flex').addClass('d-none');
+      $("#pullImageBtn").removeClass('d-flex').addClass('d-none');
 
       $("#terminal").removeClass('d-none');
 

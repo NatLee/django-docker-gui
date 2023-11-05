@@ -45,6 +45,8 @@ urlpatterns += [
     path(f"{URL_PREFIX}/auth/google/", include("custom_auth.urls")),
     # auth
     path(f"{URL_PREFIX}/auth/", include("custom_jwt.urls")),
+    # login
+    path("login", include("login.urls"), name="login"),
     # xterm
     path("", include("xterm.urls"), name="xterm"),
 ]

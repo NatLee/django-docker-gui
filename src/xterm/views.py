@@ -10,6 +10,10 @@ from django.http import JsonResponse
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
+from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
+
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
 
 from xterm.task import run_image_task
 from xterm.task import remove_image_task
@@ -17,25 +21,49 @@ from xterm.task import run_container_task
 from xterm.task import remove_container_task
 from xterm.task import stop_container_task
 
+class Index(APIView):
+    permission_classes = (AllowAny,)
+    def get(self, request):
+        response = redirect('/login')
+        return response
 
-@api_view(['GET'])
-def index(request):
-    response = redirect('/containers')
-    return response
+class Containers(APIView):
+    permission_classes = (AllowAny,)
+    def get(self, request):
+        return render(request, 'containers.html')
 
-@api_view(['GET'])
-def containers(request):
-    return render(request, 'containers.html')
+class Images(APIView):
+    permission_classes = (AllowAny,)
+    def get(self, request):
+        return render(request, 'images.html')
 
-@api_view(['GET'])
-def images(request):
-    return render(request, 'images.html')
+class Console(APIView):
+    permission_classes = (AllowAny,)
+    def get(self, request, id):
+        return render(request, 'console.html')
 
-@api_view(['GET'])
-def console(request, id):
-    return render(request, 'console.html')
+class BrowseDockerHub(APIView):
+    permission_classes = (AllowAny,)
+    def get(self, request):
+        return render(request, 'browse.html')
+
+class BrowseDockerHubView(APIView):
+    permission_classes = (IsAuthenticated,)
+    def get(self, request):
+        page_number = request.GET.get('page','1')
+        q = request.GET.get('q','')
+
+        url = f'https://hub.docker.com/api/content/v1/products/search?page={page_number}&page_size=15&q={q}&type=image'
+        headers = {'Search-Version': 'v3'}
+        page = requests.get(url, headers=headers)
+        summary = page.json()['summaries']
+        return Response({
+            'summary': summary,
+            'q': q
+        })
 
 class ContainersListView(APIView):
+    permission_classes = (IsAuthenticated,)
     def get(self, request, format=None):
         client = docker.from_env()
         containers = client.containers.list(all=True)
@@ -62,6 +90,7 @@ class ContainersListView(APIView):
         })
 
 class ImagesListView(APIView):
+    permission_classes = (IsAuthenticated,)
     def get(self, request, format=None):
         client = docker.from_env()
         images = client.images.list()
@@ -87,6 +116,7 @@ class ImagesListView(APIView):
         })
 
 class ConsoleView(APIView):
+    permission_classes = (IsAuthenticated,)
     def get(self, request, id, action):
         client = docker.from_env()
         container = client.containers.get(id)
@@ -104,17 +134,6 @@ class ConsoleView(APIView):
             'command': command,
             'action': action
         })
-
-@api_view(['GET'])
-def browse(request):
-    page_number = request.GET.get('page','1')
-    q = request.GET.get('q','')
-
-    url = 'https://hub.docker.com/api/content/v1/products/search?page='+page_number+'&page_size=15&q='+q+'&type=image'
-    headers = {'Search-Version': 'v3'}
-    page = requests.get(url, headers=headers)
-    summary = page.json()['summaries']
-    return render(request, 'browse.html', {'summary': summary,'q':q})
 
 @api_view(['POST'])
 def run_image(request):
