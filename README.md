@@ -8,11 +8,21 @@ A simple web UI for managing docker containers & images and interacting with usi
 
 > Docker daemon must be running.
 
+1. Run the following command to get the image build and run.
+
 ```
 docker-compose up
 ```
 
-And go to http://localhost:8000, it will show the containers!
+2. Create a superuser for Django admin.
+
+> Check the script `./dev-create-superuser.sh` and change the username and password if you want.
+
+```
+bash dev-create-superuser.sh
+```
+
+3. Go to http://localhost:8000, it will show the login page.
 
 # Reference
 
