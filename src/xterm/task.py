@@ -55,3 +55,12 @@ def remove_container_task(id):
     container_name = container.name
     msg = f"Container {container_name} has been removed"
     return msg
+
+@job
+def restart_container_task(id):
+    client = docker.from_env()
+    container = client.containers.get(id)
+    container.restart()
+    container_name = container.name
+    msg = f"Container {container_name} has been restarted"
+    return msg

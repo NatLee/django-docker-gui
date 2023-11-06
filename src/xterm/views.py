@@ -20,6 +20,7 @@ from xterm.task import remove_image_task
 from xterm.task import run_container_task
 from xterm.task import remove_container_task
 from xterm.task import stop_container_task
+from xterm.task import restart_container_task
 
 class Index(APIView):
     permission_classes = (AllowAny,)
@@ -152,14 +153,21 @@ def start_stop_remove(request):
     cmd = request.data['cmd']
     _id = request.data['id']
 
+    job = None
+
     if cmd == "start":
         job = run_container_task.delay(_id)
     elif cmd == "stop":
         job = stop_container_task.delay(_id)
     elif cmd == "remove":
         job = remove_container_task.delay(_id)
-    return JsonResponse({"task_id": job.id})
+    elif cmd == "restart":
+        job = restart_container_task.delay(_id)
 
+    if job:
+        return JsonResponse({"task_id": job.id})
+
+    return JsonResponse({"task_id": None})
 
 def check_progress(request, task_id):
     queue = django_rq.get_queue('default')
