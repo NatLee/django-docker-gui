@@ -9,7 +9,7 @@ services:
     container_name: d-docker-web
     entrypoint: /src/docker-entrypoint.sh
     ports:
-      - "8000:8000"
+      - "5000:8000"
     # attach docker sock to interact with the host docker
     volumes: 
       - ./src:/src
