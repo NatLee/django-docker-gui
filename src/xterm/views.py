@@ -24,27 +24,32 @@ from xterm.task import restart_container_task
 
 class Index(APIView):
     permission_classes = (AllowAny,)
+    swagger_schema = None
     def get(self, request):
         response = redirect('/login')
         return response
 
 class Containers(APIView):
     permission_classes = (AllowAny,)
+    swagger_schema = None
     def get(self, request):
         return render(request, 'containers.html')
 
 class Images(APIView):
     permission_classes = (AllowAny,)
+    swagger_schema = None
     def get(self, request):
         return render(request, 'images.html')
 
 class Console(APIView):
     permission_classes = (AllowAny,)
+    swagger_schema = None
     def get(self, request, id):
         return render(request, 'console.html')
 
 class BrowseDockerHub(APIView):
     permission_classes = (AllowAny,)
+    swagger_schema = None
     def get(self, request):
         return render(request, 'browse.html')
 
@@ -72,13 +77,18 @@ class ContainersListView(APIView):
         # Serialize the container data
         container_data = []
         for container in containers:
+            image_tag = None
+            image_tags = container.image.tags
+            if image_tags:
+                image_tag = image_tags[0]
+
             container_info = {
                 'id': container.id,
                 'name': container.name,
                 'status': container.status,
-                'command': container.attrs['Config']['Cmd'],
+                'command': container.attrs['Config'].get('Cmd', None),
                 'short_id': container.short_id,
-                'image_tag': container.image.tags[0]
+                'image_tag': image_tag
             }
             container_data.append(container_info)
 
