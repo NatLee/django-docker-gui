@@ -20,7 +20,6 @@
     integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM"
     crossorigin="anonymous"></script>
 
-
   <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
 
   <!-- using and older version of terminal css to remove xterm-helper-textarea -->
@@ -28,7 +27,6 @@
 
   <script src="https://unpkg.com/xterm@4.11.0/lib/xterm.js"></script>
   <script src="https://unpkg.com/xterm-addon-fit@0.5.0/lib/xterm-addon-fit.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.4.0/socket.io.js"></script>
 
   {% load static %}
   <script src="{% static 'js/helper.js' %}"></script>
@@ -267,30 +265,44 @@
         open_once_only = false;
       }
 
-      var socket = io.connect({transports: ["websocket", "polling"]});
+      var ws_scheme = window.location.protocol == "https:" ? "wss" : "ws";
+      var ws_path = ws_scheme + '://' + window.location.host + "/ws/pull-image/";
+      var socket = new WebSocket(ws_path);
+  
+      // Convert and send a message to the server
+      function sendWebSocketMessage(action, message) {
+          socket.send(JSON.stringify({ action: action, payload: message }));
+      }
 
-      socket.on("connect", () => {
+      socket.onopen = function () {
+        console.log("WebSocket connection established");
         term.write("Pulling image, please wait...\r\n")
+        // Handle the connect event
         $("#btn-close").addClass('disabled');
+        sendWebSocketMessage("pull_image", { "image": image, "version": version })
+    };
 
-      })
+    // Handle incoming WebSocket messages
+      socket.onmessage = function (event) {
+        const data = JSON.parse(event.data);
+        console.log(`status: ${data.status}`);
+        console.log(`progress: ${data.progress}`);
+        term.write(data.status + data.progress + "\r\n");
+    };
 
-      socket.emit("pull_image_input", { "image": image, "version": version })
-
-      socket.on("pull_image_output", (message) => {
-        console.log(message["status"], "aaa", message["progress"])
-        term.write(message["status"] + message["progress"] + "\r\n")
-      });
-
-      socket.on("disconnect", () => {
-        console.log("DONE")
-        term.write("\r\nDone")
+    socket.onclose = function (event) {
+        if (event.wasClean) {
+          term.write("\r\nDone")
+          term.write(`\r\nConnection closed cleanly, code=${event.code}`);
+        } else {
+          // e.g., WebSocket is closed before the connection is established
+          term.write('Connection died');
+        }
         $("#modal_footer").removeClass('d-none').addClass('d-flex');
         $("#btn-close").removeClass('disabled');
+    };
 
-      })
-
-    }
+  }
 
   </script>
 
