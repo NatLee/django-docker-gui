@@ -8,7 +8,6 @@ import docker
 from asgiref.sync import sync_to_async
 
 from channels.generic.websocket import AsyncWebsocketConsumer
-from channels.db import database_sync_to_async
 
 class ConsoleConsumer(AsyncWebsocketConsumer):
     async def connect(self):
@@ -115,10 +114,11 @@ class ConsoleConsumer(AsyncWebsocketConsumer):
             if data_ready:
                 output = self.docker_socket._sock.recv(1024)
                 if output == b'':
-                    # Assuming you have a method to handle disconnection
+                    # disconnect when we stop receiving data
                     await self.close()
                 # Forward the output to the WebSocket
-                await self.send(text_data=output.decode('cp437'))
+                text_data = output.decode('cp437')[8:]
+                await self.send(text_data=text_data)
 
     async def pty_input(self, payload):
         session_data = await sync_to_async(self.scope["session"].load)()
@@ -138,7 +138,7 @@ class ConsoleConsumer(AsyncWebsocketConsumer):
             'pid': unique_pid_file
         }
         self.scope["session"].update(session_data)
-        await sync_to_async( self.scope["session"].save)()
+        await sync_to_async(self.scope["session"].save)()
 
 
 class PullConsumer(AsyncWebsocketConsumer):
