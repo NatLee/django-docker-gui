@@ -48,7 +48,15 @@ async function loadConsoleData(containerID, action) {
 function setupWebSocketConnection(containerID, action){
     Terminal.applyAddon(fit);
 
-    var socket = io.connect({transports: ["websocket", "polling"]});
+    var ws_scheme = window.location.protocol == "https:" ? "wss" : "ws";
+    var ws_path = ws_scheme + '://' + window.location.host + "/ws/console/";
+    var socket = new WebSocket(ws_path);
+
+    // Convert and send a message to the server
+    function sendWebSocketMessage(action, message) {
+        socket.send(JSON.stringify({ action: action, payload: message }));
+    }
+
     const status = document.getElementById("status")
 
     var term = new Terminal({
@@ -62,35 +70,50 @@ function setupWebSocketConnection(containerID, action){
         const ctrlKey = isMac ? ev.metaKey : ev.ctrlKey;
 
         if (ctrlKey && key === 'c' && term.hasSelection()) {
-        // Copy to clipboard
-        navigator.clipboard.writeText(term.getSelection());
+            // Copy to clipboard
+            navigator.clipboard.writeText(term.getSelection());
         } else {
-        // Send other key inputs to the server
-        socket.emit("pty_input", { "input": key, "id": window.location.pathname.split("/")[2] });
+            // Send other key inputs to the server
+            sendWebSocketMessage("pty_input", { "input": key, "id": containerID });
         }
     });
 
     // Handle paste event
     term.on('paste', (data) => {
-        socket.emit("pty_input", { "input": data, "id": window.location.pathname.split("/")[2] });
+        // Using the WebSocket connection to send data
+        sendWebSocketMessage("pty_input", { "input": data, "id": containerID });
     });
 
-    socket.on("pty_output", function (output) {
-        //console.log(output["output"])
-        term.write(output["output"])
-    })
 
-    socket.on("connect", () => {
-        status.innerHTML = '<span style="background-color: lightgreen;">connected</span>'
-        socket.emit(action, { "Id": containerID })
-        term.focus()
-    });
+    // Handle incoming WebSocket messages
+    socket.onmessage = function (event) {
+        term.write(event.data);
+    };
 
-    socket.on("disconnect", () => {
-        status.innerHTML = '<span style="background-color: #ff8383;">disconnected</span>'
+    socket.onopen = function () {
+        console.log("WebSocket connection established");
+        // Handle the connect event
+        status.innerHTML = '<span style="background-color: lightgreen;">connected</span>';
+        // Here we assume `action` and `containerID` are defined elsewhere in your script
+        sendWebSocketMessage(action, { "Id": containerID });
+        term.focus();
+    };
 
-    })
+    socket.onclose = function (event) {
+        if (event.wasClean) {
+            console.log(`Connection closed cleanly, code=${event.code}, reason=${event.reason}`);
+        } else {
+            // e.g., WebSocket is closed before the connection is established
+            console.log('Connection died');
+        }
+        status.innerHTML = '<span style="background-color: #ff8383;">disconnected</span>';
+    };
 
+    socket.onerror = function (error) {
+        console.error(`WebSocket error observed: ${error}`);
+    };
+
+    /*
     function resize() {
         term.fit()
         socket.emit("resize", { "cols": term.cols, "rows": term.rows })
@@ -98,7 +121,7 @@ function setupWebSocketConnection(containerID, action){
 
     window.onresize = resize
     window.onload = resize
-
+    */
 }
 
 function getPathSegments() {

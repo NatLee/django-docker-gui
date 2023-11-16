@@ -61,6 +61,10 @@ VALID_REGISTER_DOMAINS = ["gmail.com"]
 
 # Application definition
 INSTALLED_APPS = [
+    # websocket
+    "daphne",
+    "channels",
+    "channels_redis",
     # django
     'django.contrib.admin',
     'django.contrib.auth',
@@ -112,7 +116,6 @@ TEMPLATES = [
 
 
 ASGI_APPLICATION = "backend.asgi.application"
-WSGI_APPLICATION = "backend.wsgi.application"
 
 # -------------- START - Swagger Setting --------------
 
@@ -207,6 +210,15 @@ CACHES = {
     },
 }
 
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [("d-docker-redis", 6379)],
+        },
+    },
+}
+
 # Default primary key field type
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
@@ -255,17 +267,12 @@ LOGGING = {
     'handlers': HANDLERS,
     'loggers': {
         'django': {
-            'handlers': ['file', 'console'],
+            'handlers': ['file'],
             'propagate': True,
             'level': "INFO"
         },
-        'django.db.backends': {
-            'handlers': ['database'],
-            'propagate': False,
-            'level': "DEBUG"
-        },
-        'django.request': {
-            'handlers': ['file'],
+        'xterm': {
+            'handlers': ['console'],
             'propagate': False,
             'level': "DEBUG"
         }
