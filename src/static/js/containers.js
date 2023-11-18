@@ -1,6 +1,5 @@
 
 function handleContainerAction(html_btn, cmd) {
-    html_btn.innerHTML = "Loading...";
     containerID = html_btn.dataset.id;
     let url = '/api/containers/start-stop-remove'
     let data = { 'id': containerID, 'cmd': cmd };
@@ -22,10 +21,7 @@ function handleContainerAction(html_btn, cmd) {
        }
        return response.json();    
     }).then(data => {
-       console.log(data["task_id"])
-       return getUpdate(data["task_id"])
-    }).then(() => {
-       fetchAndDisplayContainers();
+        console.log(data["task_id"])
     })
  }
 
@@ -76,7 +72,7 @@ function handleContainerAction(html_btn, cmd) {
                         </div>
                     </td>
                     <td>
-                        <div class='d-flex'>
+                        <div class='d-flex' id="actions-${item.id}">
                             ${actionButtons}
                         </div>
                     </td>
@@ -89,4 +85,37 @@ function handleContainerAction(html_btn, cmd) {
         });
 }
 
+
+function notificationWebsocket() {
+
+    var ws_scheme = window.location.protocol == "https:" ? "wss" : "ws";
+    var ws_path = ws_scheme + '://' + window.location.host + "/ws/notifications/";
+    var socket = new WebSocket(ws_path);
+
+    socket.onmessage = function (event) {
+        const data = JSON.parse(event.data);
+        console.log('Notification message:', data.message);
+        let action = data.message.action;
+
+        if (action === "WAITING") {
+            createToastAlert(data.message.details, false);
+            let containerID = data.message.data.container_id;
+            // get the record from the table by id
+            let record = document.getElementById("actions-" + containerID);
+            // block actions & show the waiting status
+            record.innerHTML = `
+                <span class="btn btn-warning btn-sm me-3">Waiting</span>
+            `;
+        }
+        if (action === "CREATED" || action === "STARTED" || action === "STOPPED" || action === "REMOVED") {
+            createToastAlert(data.message.details, false);
+            fetchAndDisplayContainers();
+        }
+
+    };
+
+}
+
+
 document.addEventListener('DOMContentLoaded', fetchAndDisplayContainers);
+document.addEventListener('DOMContentLoaded', notificationWebsocket);

@@ -1,11 +1,8 @@
 
 function handleImageAction(html_btn, action) {
-    html_btn.innerHTML = "Loading...";
-
     let image_id = html_btn.dataset.id;
 
     let data = { 'image_id': image_id };
-
     let url = action === 'run' ? '/api/images/run' : '/api/images/remove';
 
     console.log(`${action.charAt(0).toUpperCase() + action.slice(1)} -> ${image_id}`);
@@ -27,10 +24,7 @@ function handleImageAction(html_btn, action) {
        }
        return response.json();    
     }).then(data => {
-       console.log(data["task_id"])
-       return getUpdate(data["task_id"])
-    }).then(() => {
-       fetchAndDisplayImages();
+        console.log(data["task_id"])
     })
 }
 
@@ -79,4 +73,26 @@ function fetchAndDisplayImages() {
         });
 }
 
+
+function notificationWebsocket() {
+
+    var ws_scheme = window.location.protocol == "https:" ? "wss" : "ws";
+    var ws_path = ws_scheme + '://' + window.location.host + "/ws/notifications/";
+    var socket = new WebSocket(ws_path);
+
+    socket.onmessage = function (event) {
+        const data = JSON.parse(event.data);
+        console.log('Notification message:', data.message);
+        let action = data.message.action;
+        if (action === "CREATED" || action === "STARTED" || action === "STOPPED" || action === "REMOVED") {
+            createToastAlert(data.message.details, false);
+            fetchAndDisplayImages();
+        }
+
+    };
+
+}
+
+
 document.addEventListener('DOMContentLoaded', fetchAndDisplayImages);
+document.addEventListener('DOMContentLoaded', notificationWebsocket);
