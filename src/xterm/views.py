@@ -12,9 +12,6 @@ from rest_framework.response import Response
 from rest_framework.decorators import api_view
 from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
 
-from drf_yasg.utils import swagger_auto_schema
-from drf_yasg import openapi
-
 from xterm.task import run_image_task
 from xterm.task import remove_image_task
 from xterm.task import run_container_task
