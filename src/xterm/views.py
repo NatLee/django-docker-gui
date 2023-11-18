@@ -19,6 +19,8 @@ from xterm.task import remove_container_task
 from xterm.task import stop_container_task
 from xterm.task import restart_container_task
 
+from xterm.consumers import send_notification_to_group
+
 class Index(APIView):
     permission_classes = (AllowAny,)
     swagger_schema = None
@@ -161,6 +163,20 @@ def start_stop_remove(request):
     _id = request.data['id']
 
     job = None
+
+    if cmd == "start" or cmd == "restart" or cmd == "stop"  or cmd == "remove":
+        # ========================
+        # Send notification to group
+        message = {
+            "action": "WAITING",
+            "details": f"Waiting [{_id[:8]}] for the task to complete [{cmd}]",
+            "data": {
+                "container_id": _id,
+                "cmd": cmd,
+            }
+        }
+        send_notification_to_group(message)
+        # ========================
 
     if cmd == "start":
         job = run_container_task.delay(_id)
