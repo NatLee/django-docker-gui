@@ -4,7 +4,14 @@
 
 A simple web UI for managing docker containers & images and interacting with using a fully functional terminal.
 
-# Usage
+## Contains
+
+- Django Web UI & xterm web terminal
+- Split frontend & backend
+- Django Channel with websocket for terminal & docker events
+- Django-rq for docker async tasks
+
+## Usage
 
 > Docker daemon must be running.
 
@@ -24,11 +31,11 @@ bash dev-create-superuser.sh
 
 3. Go to http://localhost:8000, it will show the login page.
 
-# Reference
+## Reference
 
-This repo is modified from [MahmoudAlyy/docker-django-ui](https://github.com/MahmoudAlyy/docker-django-ui).
+This repo was refactored from [MahmoudAlyy/docker-django-ui](https://github.com/MahmoudAlyy/docker-django-ui).
 
-# License
+## License
 
 [MIT](./LICENSE)
 

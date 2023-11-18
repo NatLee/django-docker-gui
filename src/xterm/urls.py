@@ -25,6 +25,4 @@ urlpatterns = [
     path('browse', views.BrowseDockerHub.as_view(), name='browse'),
     path('api/browse', views.BrowseDockerHubView.as_view(), name='browse-api'),
 
-    path('progress/<slug:task_id>', views.check_progress, name='check-progress'),
-
 ]

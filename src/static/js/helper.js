@@ -52,52 +52,6 @@ function createToastAlert(msg, isFailure) {
    }, 5000);
 }
 
-function sleep(ms) {
-   return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-async function getUpdate(task_id) {
-   var flag = true;
-   let progressUrl = '/progress';
-   const accessToken = localStorage.getItem('accessToken');
-
-   while (flag) {
-
-      await sleep(2000);
-      await fetch(progressUrl + `/` + task_id, {
-         "method": "GET",
-         "headers": {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${accessToken}`
-         }
-      })
-         .then(response => response.json())
-         .then(data => {
-            console.log(data)
-            if (data['state'] === 'FINISHED') {
-               flag = false;
-               let msg = data['details']
-               createToastAlert(msg, false)
-            }
-
-            else if (data['state'] === 'FAILED') {
-               flag = false;
-               let msg = data['details']
-               createToastAlert(msg, true)
-
-            }
-
-            else if (data['state'] === 'NOT FOUND') {
-               flag = false;
-               let msg = data['details']
-               createToastAlert(msg, true)
-
-            }
-         })
-   }
-   return
-}
-
 
 // ---------------------------------------
 // check token on page load
