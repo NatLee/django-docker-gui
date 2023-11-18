@@ -185,3 +185,88 @@ body {
   .active-pulse {
     animation: pulse 2s infinite;
   }
+.websocket-status {
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background-color: #dc3545;
+  /* Default to disconnected color */
+  margin-left: 10px;
+  /* Space between title and status indicator */
+  margin-bottom: 12px;
+}
+
+.websocket-status.connected {
+  background-color: #28a745;
+  /* Green for connected */
+}
+
+.websocket-status.disconnected {
+  background-color: #dc3545;
+  /* Red for disconnected/error */
+}
+
+/* Toast Container */
+.toast-container {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 1050;
+}
+
+/* Toast Styling */
+.toast {
+  opacity: 0;
+  transition: opacity 0.3s ease-in-out, transform 0.3s ease;
+  transform: translateX(100px);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+  border-radius: 12px;
+  overflow: hidden;
+  font-family: 'Arial', sans-serif;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  margin-bottom: 1rem;
+  background: linear-gradient(135deg, #6e8efb, #a777e3);
+  color: #fff;
+}
+
+.toast.show {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.toast.hide {
+  opacity: 0;
+  transform: translateX(100px);
+}
+
+.toast-body {
+  padding: 0.75rem 1.2rem;
+}
+
+.btn-close-white {
+  filter: invert(1);
+  margin-right: 0.5rem;
+}
+
+/* Danger Toast - Red Gradient */
+.toast.bg-danger {
+  background: linear-gradient(135deg, #f85032, #e73827);
+}
+
+/* Animation for Toast */
+@keyframes fadeInRight {
+  from {
+    opacity: 0;
+    transform: translateX(100px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.toast.show {
+  animation: fadeInRight 0.3s;
+}
