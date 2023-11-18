@@ -18,38 +18,34 @@ async function verifyAccessToken() {
 }
 
 function uniqueID() {
-   return Math.floor(Math.random() * Date.now())
+   return Math.random().toString(36).substr(2, 16);
 }
 
 function createToastAlert(msg, isFailure) {
-
-   let div_id = uniqueID();
-
-   const toastHtml =
-      `<div id="` + div_id + `" class="toast align-items-center text-white bg-primary border-0" role="alert" aria-live="assertive" aria-atomic="true">
-       <div class="d-flex">
-          <div class="toast-body">`
-      + msg +
-      `</div>
-          <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"
-             aria-label="Close"></button>
+   const toastId = uniqueID();
+   const toastColorClass = isFailure ? 'bg-danger' : 'bg-primary';
+   const toastHtml = `
+       <div id="${toastId}" class="toast align-items-center text-white ${toastColorClass} border-0" role="alert" aria-live="assertive" aria-atomic="true">
+           <div class="d-flex">
+               <div class="toast-body">${msg}</div>
+               <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+           </div>
        </div>
-    </div>
-    `;
+   `;
 
-   var toastContainer = document.getElementById('toastContainer');
-   toastContainer.innerHTML += toastHtml;
+   const toastContainer = document.getElementById('toastContainer');
+   toastContainer.insertAdjacentHTML('beforeend', toastHtml);
 
-   // if failure msg, make background color red
-   if (isFailure) {
-      $('#' + div_id).removeClass('bg-primary').addClass('bg-danger');
-   }
+   const toastElement = $(`#${toastId}`);
+   toastElement.toast('show');
 
-   $('#' + div_id).toast('show')
-   setTimeout(function () {
-      $('#' + div_id).toast('hide')
+   toastElement.on('hidden.bs.toast', function () {
+      toastElement.remove();
+   });
 
-   }, 5000);
+   setTimeout(() => {
+      toastElement.toast('hide');
+   }, 2000);
 }
 
 
