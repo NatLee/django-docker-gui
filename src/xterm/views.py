@@ -12,15 +12,14 @@ from rest_framework.response import Response
 from rest_framework.decorators import api_view
 from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
 
-from drf_yasg.utils import swagger_auto_schema
-from drf_yasg import openapi
-
 from xterm.task import run_image_task
 from xterm.task import remove_image_task
 from xterm.task import run_container_task
 from xterm.task import remove_container_task
 from xterm.task import stop_container_task
 from xterm.task import restart_container_task
+
+from xterm.consumers import send_notification_to_group
 
 class Index(APIView):
     permission_classes = (AllowAny,)
@@ -165,6 +164,20 @@ def start_stop_remove(request):
 
     job = None
 
+    if cmd == "start" or cmd == "restart" or cmd == "stop"  or cmd == "remove":
+        # ========================
+        # Send notification to group
+        message = {
+            "action": "WAITING",
+            "details": f"Waiting [{_id[:8]}] for the task to complete [{cmd}]",
+            "data": {
+                "container_id": _id,
+                "cmd": cmd,
+            }
+        }
+        send_notification_to_group(message)
+        # ========================
+
     if cmd == "start":
         job = run_container_task.delay(_id)
     elif cmd == "stop":
@@ -178,42 +191,3 @@ def start_stop_remove(request):
         return JsonResponse({"task_id": job.id})
 
     return JsonResponse({"task_id": None})
-
-def check_progress(request, task_id):
-    queue = django_rq.get_queue('default')
-    job = queue.fetch_job(task_id)
-    details = 'No details available.'
-
-    # Check if job exists
-    if job is None:
-        state = 'NOT FOUND'
-        details = 'No job with the provided ID was found.'
-        return JsonResponse({
-            'state': state,
-            'details': details
-        })
-
-    # Check job status
-    if job.is_finished:
-        state = 'FINISHED'
-        details = job.result
-    elif job.is_queued:
-        state = 'QUEUED'
-        details = 'Job is queued.'
-    elif job.is_started:
-        state = 'STARTED'
-        details = 'Job is in progress.'
-    elif job.is_failed:
-        state = 'FAILED'
-        details = str(job.exc_info)  # Extract exception info if job failed
-    else:
-        state = 'UNKNOWN'
-        details = 'The job state is unknown.'
-
-    response_data = {
-        'state': state,
-        'details': details
-    }
-    return JsonResponse(response_data)
-
-
