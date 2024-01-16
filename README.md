@@ -2,14 +2,16 @@
 
 ![demo](./doc/operation.gif)
 
-A simple web UI for managing docker containers & images and interacting with using a fully functional terminal.
+> Only support Linux-based machine.
+
+A simple SAAS web UI for managing Docker containers & images and interacting with using a fully functional terminal.
 
 ## Contains
 
-- Django Web UI & xterm web terminal
-- Split frontend & backend
-- Django Channel with websocket for terminal & docker events
-- Django-rq for docker async tasks
+- Django Web UI
+- Web terminal
+- Websocket for terminal & Docker events
+- Async task queue for long running Docker tasks
 
 ## Usage
 
