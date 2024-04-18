@@ -8,13 +8,43 @@ import docker
 from asgiref.sync import sync_to_async
 from asgiref.sync import async_to_sync
 
+from django.contrib.auth.models import User
+
+from rest_framework_simplejwt.tokens import AccessToken
+from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
+
 from channels.layers import get_channel_layer
 from channels.generic.websocket import AsyncWebsocketConsumer
+from channels.exceptions import StopConsumer
 
 class ConsoleConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         self.docker_socket = None
         self.group_name = 'console'
+
+        # Extract token from query string
+        query_string = self.scope['query_string'].decode()
+        params = dict(x.split('=') for x in query_string.split('&'))
+
+        token = params.get('token', None)
+        if not token:
+            await self.close(code=4001)
+            raise StopConsumer("Token not provided")
+
+        try:
+            # Verify JWT token
+            access_token = AccessToken(token)
+            # Get user from token
+            user = await sync_to_async(User.objects.get)(id=access_token['user_id'])
+        except User.DoesNotExist:
+            print(f"User not found")
+            await self.close(code=4001)
+            raise StopConsumer("User Authentication failed")
+        except (InvalidToken, TokenError) as e:
+            print(f"Token invalid: {e}")
+            await self.close(code=4001)
+            raise StopConsumer("Token Authentication failed")
+
         await self.accept()
         await self.channel_layer.group_add(self.group_name, self.channel_name)
         print(f"[{self.group_name}][{self.channel_name}] connected.")
