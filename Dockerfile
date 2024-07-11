@@ -1,6 +1,6 @@
-FROM python:3.9.18-slim-bullseye
+FROM python:3.11.9-slim-bullseye
 
-ENV PYTHONUNBUFFERED 1
+ENV PYTHONUNBUFFERED=1
 
 WORKDIR /src
 COPY requirements.txt /src
