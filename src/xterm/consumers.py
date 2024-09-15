@@ -2,6 +2,7 @@ import uuid
 import json
 import asyncio
 import select
+import base64
 
 import docker
 
@@ -17,19 +18,41 @@ from channels.layers import get_channel_layer
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.exceptions import StopConsumer
 
+import logging
+logger = logging.getLogger(__name__)
+
 class ConsoleConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         self.docker_socket = None
         self.group_name = 'console'
 
-        # Extract token from query string
-        query_string = self.scope['query_string'].decode()
-        params = dict(x.split('=') for x in query_string.split('&'))
+        subprotocol_container = None
+        token = None
 
-        token = params.get('token', None)
-        if not token:
-            await self.close(code=4001)
-            raise StopConsumer("Token not provided")
+        # Check for subprotocols
+        if self.scope['subprotocols']:
+            try:
+                for protocol in self.scope['subprotocols']:
+                    if protocol.startswith('token.'):
+                        # Extract token from subprotocol
+                        base64_encoded_token = protocol.split('.', 1)[1]
+                        # Decode token
+                        token = base64.b64decode(base64_encoded_token).decode()
+                    elif protocol.startswith('container.'):
+                        # Use the `auth` ticket as the subprotocol
+                        subprotocol_container = protocol
+            except Exception as e:
+                logger.error(f"Error parsing subprotocols: {e}")
+                await self.close(code=4000)
+                return
+            if not token or not subprotocol_container:
+                logger.error("Missing required subprotocols")
+                await self.close(code=4000)
+                return
+        else:
+            logger.error("No subprotocols provided")
+            await self.close(code=4000)
+            return
 
         try:
             # Verify JWT token
@@ -45,7 +68,7 @@ class ConsoleConsumer(AsyncWebsocketConsumer):
             await self.close(code=4001)
             raise StopConsumer("Token Authentication failed")
 
-        await self.accept()
+        await self.accept(subprotocol_container)
         await self.channel_layer.group_add(self.group_name, self.channel_name)
         print(f"[{self.group_name}][{self.channel_name}] connected.")
 

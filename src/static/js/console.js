@@ -50,8 +50,13 @@ function setupWebSocketConnection(containerID, action){
 
     const accessToken = localStorage.getItem('accessToken');
     var ws_scheme = window.location.protocol == "https:" ? "wss" : "ws";
-    var ws_path = ws_scheme + '://' + window.location.host + `/ws/console/?token=${accessToken}`;
-    var socket = new WebSocket(ws_path);
+    var ws_path = ws_scheme + '://' + window.location.host + `/ws/console/`;
+
+    // Token need to be encoded with base64
+    const tokenInfo = `token.${btoa(accessToken)}`;
+    // Create a ticket for subprotocols
+    const ticket = `container.${`${containerID}`}`;
+    const socket = new WebSocket(ws_path, [tokenInfo, ticket]);
 
     // Convert and send a message to the server
     function sendWebSocketMessage(action, message) {
@@ -110,8 +115,8 @@ function setupWebSocketConnection(containerID, action){
         status.innerHTML = '<span style="background-color: #ff8383;">disconnected</span>';
     };
 
-    socket.onerror = function (error) {
-        console.error(`WebSocket error observed: ${error}`);
+    socket.onerror = function (event) {
+        console.error(`WebSocket error observed: ${event.reason}`);
     };
 
     /*
