@@ -110,12 +110,6 @@ function setupWebSocketConnection(containerID, action){
 
     term.open(document.getElementById('terminal'));
 
-    // Immediately fit the terminal to maximum size after opening
-    setTimeout(() => {
-    handleTerminalResize();
-        term.focus();
-    }, 0);
-
     term.on('key', (key, ev) => {
         const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
         const ctrlKey = isMac ? ev.metaKey : ev.ctrlKey;
@@ -160,6 +154,14 @@ function setupWebSocketConnection(containerID, action){
             console.log('Connection died');
         }
         status.innerHTML = '<span style="background-color: #ff8383;">disconnected</span>';
+        // Add visual indication that terminal is disconnected
+        term.write('\r\n\n[Connection closed]\r\n');
+        term.setOption('cursorBlink', false); // Stop cursor from blinking
+        term.setOption('disableStdin', true); // Disable input
+        term.setOption('theme', {
+            background: '#1e1e1e',
+            foreground: '#707070',
+        });
     };
 
     socket.onerror = function (event) {
