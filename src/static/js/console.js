@@ -1,3 +1,7 @@
+// ============================
+// Utility Functions
+// ============================
+
 
 function getDisplayValue(value, defaultValue = 'N/A') {
     return value ? value : defaultValue;
@@ -16,6 +20,26 @@ const showError = (error) => {
         }
     });
 };
+
+ function getPathSegments() {
+    // This function assumes the pathname follows a specific pattern, e.g., "/api/action/containerID"
+    const segments = window.location.pathname.split('/').filter(Boolean);
+
+    // Additional checks can be added here to ensure that segments[1] and segments[2] exist
+    if (segments.length < 3) {
+        console.error('Unexpected pathname format:', window.location.pathname);
+        return { action: null, containerID: null };
+    }
+
+    return {
+        action: segments[1],
+        containerID: segments[2],
+    };
+}
+
+// ============================
+// Fetch and Display Data
+// ============================
 
 async function loadConsoleData(containerID, action) {
     try {
@@ -44,9 +68,21 @@ async function loadConsoleData(containerID, action) {
     }
 }
 
+// ============================
+// WebSocket Connection
+// ============================
+
+function sendWebSocketMessage(action, payload) {
+    if (window.socket.readyState !== WebSocket.OPEN) {
+        console.error('WebSocket is not open');
+        return;
+    }
+    window.socket.send(JSON.stringify({ action: action, payload: payload }));
+}
 
 function setupWebSocketConnection(containerID, action){
     Terminal.applyAddon(fit);
+    Terminal.applyAddon(fullscreen);
 
     const accessToken = localStorage.getItem('accessToken');
     var ws_scheme = window.location.protocol == "https:" ? "wss" : "ws";
@@ -58,18 +94,27 @@ function setupWebSocketConnection(containerID, action){
     const ticket = `container.${`${containerID}`}`;
     const socket = new WebSocket(ws_path, [tokenInfo, ticket]);
 
-    // Convert and send a message to the server
-    function sendWebSocketMessage(action, message) {
-        socket.send(JSON.stringify({ action: action, payload: message }));
-    }
+    // Expose the socket object to the window
+    window.socket = socket;
 
     const status = document.getElementById("status")
 
     var term = new Terminal({
         cursorBlink: true,
+        fontSize: 14,
+        fontFamily: 'Menlo, Monaco, "Courier New", monospace',
     });
 
+    // Expose the terminal object to the window
+    window.term = term;
+
     term.open(document.getElementById('terminal'));
+
+    // Immediately fit the terminal to maximum size after opening
+    setTimeout(() => {
+    handleTerminalResize();
+        term.focus();
+    }, 0);
 
     term.on('key', (key, ev) => {
         const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
@@ -82,7 +127,7 @@ function setupWebSocketConnection(containerID, action){
             // Send other key inputs to the server
             sendWebSocketMessage("pty_input", { "input": key, "id": containerID });
         }
-    });
+});
 
     // Handle paste event
     term.on('paste', (data) => {
@@ -103,6 +148,8 @@ function setupWebSocketConnection(containerID, action){
         // Here we assume `action` and `containerID` are defined elsewhere in your script
         sendWebSocketMessage(action, { "Id": containerID });
         term.focus();
+        // Fit terminal again after connection is established
+        handleTerminalResize();
     };
 
     socket.onclose = function (event) {
@@ -119,32 +166,69 @@ function setupWebSocketConnection(containerID, action){
         console.error(`WebSocket error observed: ${event.reason}`);
     };
 
-    /*
-    function resize() {
-        term.fit()
-        socket.emit("resize", { "cols": term.cols, "rows": term.rows })
-    }
-
-    window.onresize = resize
-    window.onload = resize
-    */
 }
 
-function getPathSegments() {
-    // This function assumes the pathname follows a specific pattern, e.g., "/api/action/containerID"
-    const segments = window.location.pathname.split('/').filter(Boolean);
+// ============================
+// Terminal Actions
+// ============================
 
-    // Additional checks can be added here to ensure that segments[1] and segments[2] exist
-    if (segments.length < 3) {
-        console.error('Unexpected pathname format:', window.location.pathname);
-        return { action: null, containerID: null };
+const resizeTerminal = debounce((cols, rows) => {
+    const termElement = document.querySelector('.terminal');
+    if (!termElement) return;
+
+    const height = termElement.offsetHeight;
+    const width = termElement.offsetWidth;
+
+    sendWebSocketMessage("pty_resize", { 
+        size: {
+            rows: rows,
+            cols: cols,
+            height: height,
+            width: width
+        }
+    });
+
+    console.log(`Resized terminal to ${cols} cols and ${rows} rows`);
+
+}, 250); // 250ms 的延遲
+
+
+function adjustTerminalHeight(viewportHeight) {
+    const terminalWrapper = document.querySelector('.terminal-wrapper');
+    const navbarHeight = document.querySelector('nav').offsetHeight;
+    
+    // 計算 terminal 可用的高度
+    let availableHeight = viewportHeight - navbarHeight - 40; // 40px for margin
+    
+    // 設定 terminal wrapper 的高度
+    terminalWrapper.style.height = `${availableHeight}px`;
+    
+    // 調整 terminal 大小
+    if (window.term) {
+        window.term.fit();
+        const dimensions = window.term.proposeGeometry();
+        if (dimensions) {
+            resizeTerminal(dimensions.cols, dimensions.rows);
+        }
     }
-
-    return {
-        action: segments[1],
-        containerID: segments[2],
-    };
 }
+
+function handleTerminalResize() {
+    const currentWindowHeight = window.innerHeight;
+    adjustTerminalHeight(currentWindowHeight);
+}
+
+// ============================
+// Main
+// ============================
+
+$(document).ready(function () {
+    // Initial adjustment
+    handleTerminalResize();
+    // Listen for window resize events
+    window.addEventListener('resize', handleTerminalResize);
+});
+
 
 const { action, containerID } = getPathSegments();
 
@@ -152,4 +236,3 @@ console.log(`Container ID:` + containerID);
 console.log(`Action:` + action);
 
 loadConsoleData(containerID, action);
-
