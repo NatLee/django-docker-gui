@@ -62,11 +62,11 @@
     box-shadow: none;
 }
 
-    /* XTerm specific customization */
-    .xterm-viewport {
+/* XTerm specific customization */
+.xterm-viewport {
     border-radius: 0;
-    }
+}
 
-    .xterm-screen {
+.xterm-screen {
     padding: 0;
-    }
+}
