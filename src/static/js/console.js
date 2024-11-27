@@ -121,7 +121,7 @@ function setupWebSocketConnection(containerID, action){
             // Send other key inputs to the server
             sendWebSocketMessage("pty_input", { "input": key, "id": containerID });
         }
-});
+    });
 
     // Handle paste event
     term.on('paste', (data) => {
