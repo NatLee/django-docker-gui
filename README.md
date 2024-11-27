@@ -2,7 +2,7 @@
 
 ![demo](./doc/operation.gif)
 
-> Only support Linux-based machine.
+> Only support Linux-based machine because it uses Docker socket to interact with Docker daemon.
 
 A simple SAAS web UI for managing Docker containers & images and interacting with using a fully functional terminal.
 
