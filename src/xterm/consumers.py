@@ -190,12 +190,21 @@ class ConsoleConsumer(AsyncWebsocketConsumer):
         await sync_to_async(self.docker_socket._sock.send)(payload["input"].encode())
 
     async def pty_resize(self, payload):
-        pty_size = payload['size']
+        pty_size = payload.get('size', {})
+        # Validate pty_size
+        if not pty_size.get('rows') or not pty_size.get('cols'):
+            logger.error("Invalid pty_size")
+            return
         # Get container info from session 
         session_data = await sync_to_async(self.scope["session"].load)()
         container_id = session_data.get('id')
         exec_id = session_data.get('exec_id')
         
+        # Only allow resize for shell sessions (where exec_id exists)
+        if not exec_id:
+            logger.warning("Resize attempted for attach session - ignoring")
+            return
+            
         # Get Docker client
         client = docker.APIClient()
         
