@@ -8,52 +8,30 @@
 
   <link rel="stylesheet" href="https://unpkg.com/xterm@3.6.0/dist/xterm.css" />
 
-  <style>
-    body, html {
-      height: 100%;
-      margin: 0;
-    }
-    #terminal {
-      background: #333333
-    }
-    #terminal-container {
-      padding: 0;
-      height: calc(100% - 10px);
-    }
-    .navbar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      background-color: #333;
-      color: white;
-      padding: 0.5rem;
-    }
-    #status {
-      font-weight: bold;
-      color: black;
-    }
-  </style>
+  {% load static %}
+  <link rel="stylesheet" href="{% static 'styles/console.css' %}">
 
   <script src="https://unpkg.com/xterm@3.6.0/dist/xterm.js"></script>
   <script src="https://unpkg.com/xterm@3.6.0/dist/addons/fit/fit.js"></script>
   <script src="https://unpkg.com/xterm@3.6.0/dist/addons/fullscreen/fullscreen.js"></script>
 
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
 </head>
 
-<body style="height: 100%">
-
-  <nav class="navbar navbar-dark bg-dark">
-    <span style="font-size: medium;">Status: <span id="status">connecting...</span></span>
+<body>
+  <nav class="navbar">
+    <span>Status: <span id="status">connecting...</span></span>
     <span id="console-info"></span>
   </nav>
 
-  <div style=" width: 100%; height:100%;" id="terminal"></div>
-
+  <div class="terminal-wrapper">
+    <div id="terminal"></div>
+  </div>
 </body>
 
 {% block scripts %}
-{% load static %}
+<script src="{% static 'js/helper.js' %}"></script>
 <script src="{% static 'js/console.js' %}"></script>
 {% endblock %}
 
