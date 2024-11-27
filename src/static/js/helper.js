@@ -1,4 +1,8 @@
 
+// ============================
+// Utility Functions
+// ============================
+
 async function verifyAccessToken() {
    const accessToken = localStorage.getItem('accessToken');
    if (!accessToken) {
@@ -20,6 +24,7 @@ async function verifyAccessToken() {
 function uniqueID() {
    return Math.random().toString(36).substr(2, 16);
 }
+
 
 function createToastAlert(msg, isFailure) {
    const toastId = uniqueID();
@@ -46,6 +51,19 @@ function createToastAlert(msg, isFailure) {
    setTimeout(() => {
       toastElement.toast('hide');
    }, 2000);
+}
+
+
+function debounce(func, wait) {
+   let timeout;
+   return function executedFunction(...args) {
+       const later = () => {
+           clearTimeout(timeout);
+           func(...args);
+       };
+       clearTimeout(timeout);
+       timeout = setTimeout(later, wait);
+   };
 }
 
 
