@@ -5,6 +5,8 @@ services:
       dockerfile: ./Dockerfile
     image: d-docker-web
     container_name: d-docker-web
+    hostname: Docker-Web-GUI
+    restart: always
     entrypoint: /src/docker-entrypoint.sh
     ports:
       - "8000:8000"
