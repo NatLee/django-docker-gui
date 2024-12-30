@@ -1,12 +1,14 @@
+import os
 import uuid
 import json
 import asyncio
 import select
 import base64
-import fcntl
+import signal
 import struct
+import pty
+import fcntl
 import termios
-
 
 import docker
 
@@ -314,6 +316,140 @@ class NotificationConsumer(AsyncWebsocketConsumer):
             'message': message
         }))
 
+
+class TerminalConsumer(AsyncWebsocketConsumer):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.child_pid = None
+        self.fd = None
+
+    async def connect(self):
+        logger.info("WebSocket connection attempt")
+        subprotocol_auth = None
+        token = None
+
+        # Check for subprotocols
+        if self.scope['subprotocols']:
+            try:
+                for protocol in self.scope['subprotocols']:
+                    if protocol.startswith('token.'):
+                        # Extract token from subprotocol
+                        base64_encoded_token = protocol.split('.', 1)[1]
+                        # Decode token
+                        token = base64.b64decode(base64_encoded_token).decode()
+                        selected_protocol = protocol  # 保存選中的 protocol
+                        break
+            except Exception as e:
+                logger.error(f"Error parsing subprotocols: {e}")
+                await self.close(code=4000)
+                return
+            if not token:
+                logger.error("Missing required subprotocols")
+                await self.close(code=4000)
+                return
+        else:
+            logger.error("No subprotocols provided")
+            await self.close(code=4000)
+            return
+
+        # Verify JWT token
+        try:
+            access_token = AccessToken(token)
+            user = await sync_to_async(User.objects.get)(id=access_token['user_id'])
+            logger.info(f"User authenticated: {user}")
+
+            # Check if user is admin
+            if not user.is_superuser:
+                logger.error("User is not admin")
+                await self.close(code=4002)
+                return
+
+        except (InvalidToken, TokenError) as e:
+            logger.error(f"Token invalid: {e}")
+            await self.close(code=4001)
+            return
+        except User.DoesNotExist:
+            logger.error("User not found")
+            await self.close(code=4001)
+            return
+
+        # Accept the WebSocket connection with the subprotocol token
+        await self.accept(selected_protocol)
+        logger.info("WebSocket connection accepted")
+
+        # Start the SSH connection
+        if self.child_pid is None:
+            try:
+                # Fork a child process
+                self.child_pid, self.fd = pty.fork()
+                if self.child_pid == 0:  # Child process
+                    # Set TERM environment variable to xterm
+                    os.environ['TERM'] = 'xterm'
+                    # Execute Bash
+                    logger.info("Use pty.fork to start Bash shell")
+                    os.execlp('bash', 'bash')
+                else:  # Parent process
+                    logger.info("Parent process started")
+                    # Start forwarding output from the child process to the client
+                    logger.info("Start forwarding output from the child process to the client")
+                    asyncio.get_event_loop().add_reader(self.fd, self.forward_output)
+                logger.info("Bash Shell started")
+            except Exception as e:
+                logger.error(f"Error starting Bash shell: {e}")
+                await self.close(code=4005)
+                return
+
+    async def disconnect(self, close_code):
+        # Gracefully terminate the child process
+        if self.child_pid:
+            try:
+                # First, try to terminate the process gently
+                os.kill(self.child_pid, signal.SIGTERM)
+                # Wait a brief period to allow for graceful shutdown
+                await asyncio.sleep(0.5)
+                # Forcefully kill if still alive
+                os.kill(self.child_pid, signal.SIGKILL)
+                os.waitpid(self.child_pid, 0)
+            except ProcessLookupError:
+                pass
+            finally:
+                # Ensure removal of reader happens before clearing fd
+                if self.fd is not None:
+                    asyncio.get_event_loop().remove_reader(self.fd)
+                self.child_pid = None
+                self.fd = None
+
+    async def receive(self, text_data=None, bytes_data=None):
+        # Handle receiving input from the client (e.g., keyboard input)
+        if text_data:
+            data = json.loads(text_data)
+            action = data.get('action')
+            payload = data.get('payload')
+
+            # Handle pty_input action
+            if action == 'pty_input' and self.fd:
+                os.write(self.fd, payload['input'].encode())
+
+            # Handle resize action
+            if action == 'pty_resize' and self.fd:
+                # Resize the pty
+                pty_size = payload['size']
+                # Frontend sends size as dict with keys: rows, cols, height, width
+                # Convert to struct with keys: rows, cols, x, y
+                pty_size_bytes = struct.pack('HHHH', pty_size['rows'], pty_size['cols'], pty_size['height'], pty_size['width'])
+                fcntl.ioctl(self.fd, termios.TIOCSWINSZ, pty_size_bytes)
+
+    def forward_output(self):
+        try:
+            output = os.read(self.fd, 1024).decode()
+            if len(output) == 0:
+                # EOF received, meaning the shell has been exited
+                asyncio.ensure_future(self.close())
+            else:
+                asyncio.ensure_future(self.send(text_data=output))
+        except OSError:
+            # OSError can occur if the fd has been closed due to the process exiting
+            asyncio.ensure_future(self.close())
 
 def send_notification_to_group(message):
     channel_layer = get_channel_layer()
