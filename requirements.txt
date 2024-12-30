@@ -2,7 +2,7 @@
 supervisor
 
 # Django
-Django==5.0.7
+Django==5.1.4
 
 # Django Packages
 django-cors-headers==3.11.0

@@ -22,6 +22,8 @@ urlpatterns = [
     path('console/shell/<slug:id>', views.Console.as_view(), name='shell-console'),
     path('console/attach/<slug:id>', views.Console.as_view(), name='attach-console'),
 
+    path('terminal', views.Terminal.as_view(), name='terminal'),
+
     path('browse', views.BrowseDockerHub.as_view(), name='browse'),
     path('api/browse', views.BrowseDockerHubView.as_view(), name='browse-api'),
 

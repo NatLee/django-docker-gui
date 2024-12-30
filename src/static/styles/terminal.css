@@ -1,0 +1,67 @@
+/* Reset and base styles */
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+    body, html {
+    height: 100vh;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    background-color: #1e1e1e;
+    overflow: hidden;
+    }
+
+    /* Navbar styles */
+    .navbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: #252526;
+    color: #e0e0e0;
+    padding: 0.75rem 1.25rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    height: 48px;
+    }
+
+    #status {
+    font-weight: 500;
+    color: #1b3631;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    background-color: rgba(78, 201, 176, 0.1);
+    }
+
+    #status.disconnected {
+    color: #af4b4b;
+    background-color: rgba(244, 71, 71, 0.1);
+    }
+
+    /* Terminal container styles */
+    .terminal-wrapper {
+    height: calc(100vh - 48px); /* Subtract navbar height */
+    width: 100vw;
+    padding: 0;
+    background-color: #1e1e1e;
+    }
+
+#terminal {
+    width: 100%;
+    height: 100%;
+    border-radius: 0;
+    padding: 0;
+    background-color: #1e1e1e;
+    box-shadow: none;
+}
+
+/* XTerm specific customization */
+.xterm-viewport {
+    border-radius: 0;
+}
+
+.xterm-screen {
+    padding: 0;
+}
