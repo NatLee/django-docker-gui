@@ -46,6 +46,12 @@ class Console(APIView):
     def get(self, request, id):
         return render(request, 'console.html')
 
+class Terminal(APIView):
+    permission_classes = (AllowAny,)
+    swagger_schema = None
+    def get(self, request):
+        return render(request, 'terminal.html')
+
 class BrowseDockerHub(APIView):
     permission_classes = (AllowAny,)
     swagger_schema = None
@@ -144,6 +150,7 @@ class ConsoleView(APIView):
             'command': command,
             'action': action
         })
+
 
 @api_view(['POST'])
 def run_image(request):
