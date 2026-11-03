@@ -17,12 +17,12 @@ API_ENDPOINTS = [
 class ApiLoginTests(TestCase):
     def test_every_docker_endpoint_needs_a_login(self):
         for method, url in API_ENDPOINTS:
-            with self.subTest(url=url):
+            with self.subTest(url=url), self.assertLogs("django.request", "WARNING"):
                 self.assertEqual(getattr(self.client, method)(url).status_code, 401)
 
     def test_refresh_token_is_not_an_access_token(self):
         user = User.objects.create_user("member", password="pw")
         auth = {"HTTP_AUTHORIZATION": f"Bearer {RefreshToken.for_user(user)}"}
         for method, url in API_ENDPOINTS:
-            with self.subTest(url=url):
+            with self.subTest(url=url), self.assertLogs("django.request", "WARNING"):
                 self.assertEqual(getattr(self.client, method)(url, **auth).status_code, 401)
