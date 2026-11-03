@@ -177,7 +177,6 @@ AUTH_PASSWORD_VALIDATORS = [
 LANGUAGE_CODE = "en-us"
 TIME_ZONE = "Asia/Taipei"
 USE_I18N = True
-USE_L10N = True
 USE_TZ = True
 APPEND_SLASH = False
 
@@ -217,9 +216,6 @@ CHANNEL_LAYERS = {
         },
     },
 }
-
-# Default primary key field type
-DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # -------------- START - Log setting --------------
 # Everything goes to stdout/stderr, so `docker logs d-docker-web` shows the web server, the
