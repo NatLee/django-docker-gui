@@ -3,10 +3,24 @@
 // Utility Functions
 // ============================
 
+// Back to the login page, which shows `message` (if any) once. The tokens are dropped, so the login
+// page doesn't send the browser straight back here.
+function backToLogin(message) {
+   if (message) {
+      sessionStorage.setItem('loginMessage', message);
+   }
+   localStorage.removeItem('accessToken');
+   localStorage.removeItem('refreshToken');
+   window.location.href = '/login';
+}
+
+// Every page checks on load that its token is still good for this app (backend/access.py: active
+// superusers only).
 async function verifyAccessToken() {
    const accessToken = localStorage.getItem('accessToken');
    if (!accessToken) {
       window.location.href = '/login';
+      return;
    }
    const response = await fetch('/api/auth/token/verify', {
       method: 'POST',
@@ -17,7 +31,8 @@ async function verifyAccessToken() {
    });
 
    if (!response.ok) {
-      window.location.href = '/login';
+      const data = await response.json().catch(() => ({}));
+      backToLogin(data.code === 'superusers_only' ? data.detail : '');
    }
 }
 
@@ -42,6 +57,9 @@ async function apiFetch(url, options = {}) {
    });
    if (response.status === 401) {
       window.location.href = '/login';
+   } else if (response.status === 403) {  // the account may not use the app (any more)
+      const data = await response.clone().json().catch(() => ({}));
+      backToLogin(data.detail);
    }
    return response;
 }

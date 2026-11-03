@@ -5,7 +5,7 @@ from rest_framework_simplejwt.tokens import AccessToken
 
 class TokenTests(TestCase):
     def setUp(self):
-        self.user = User.objects.create_user("admin", password="1234")
+        self.user = User.objects.create_superuser("admin", password="1234")
 
     def post(self, url, data):
         return self.client.post(url, data, content_type="application/json")

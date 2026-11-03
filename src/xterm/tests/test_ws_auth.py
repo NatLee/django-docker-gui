@@ -74,25 +74,32 @@ class WebSocketLoginTests(ConsumerTestCase):
     async def test_accepts_padded_and_unpadded_tokens_and_answers_with_the_name(self):
         for padded in (False, True):
             with self.subTest(padded=padded):
-                ws = communicator("/ws/notifications/", ["notifications", token_protocol(access_token(self.member), padded)])
+                ws = communicator("/ws/notifications/", ["notifications", token_protocol(access_token(self.admin), padded)])
                 connected, subprotocol = await ws.connect()
                 self.assertTrue(connected)
                 self.assertEqual(subprotocol, "notifications")
                 await ws.disconnect()
 
-    async def test_host_terminal_is_for_superusers_only(self):
-        await self.assert_refused("/ws/terminal/", self.protocols(self.member, "terminal.x"))
-
-    async def test_console_and_pull_are_for_any_active_account(self):
-        for path in ("/ws/console/", "/ws/pull-image/"):
-            with self.subTest(path=path):
-                ws = communicator(path, self.protocols(self.member, "container.x"))
-                connected, _ = await ws.connect()
-                self.assertTrue(connected)
+    async def test_every_socket_is_for_superusers_only(self):
+        # The owner's rule (backend/access.py): accounts that aren't superusers are refused
+        # everywhere, staff included, and superusers get every socket.
+        for path in ALL_PATHS:
+            for user in (self.member, self.staff):
+                with self.subTest(path=path, user=user.username):
+                    await self.assert_refused(path, self.protocols(user, "name.x"))
+        for path in ("/ws/console/", "/ws/pull-image/", "/ws/notifications/"):  # the terminal starts a shell
+            with self.subTest(path=path, user="admin"):
+                ws = communicator(path, self.protocols(self.admin, "name.x"))
+                self.assertTrue((await ws.connect())[0])
                 await ws.disconnect()
 
+    async def test_a_token_stops_working_when_superuser_is_taken_away(self):
+        token = access_token(self.admin)
+        await sync_to_async(User.objects.filter(pk=self.admin.pk).update)(is_superuser=False)
+        await self.assert_refused("/ws/console/", ["container.x", token_protocol(token)])
+
     async def test_notifications_reach_logged_in_listeners(self):
-        ws = communicator("/ws/notifications/", self.protocols(self.member, "notifications"))
+        ws = communicator("/ws/notifications/", self.protocols(self.admin, "notifications"))
         self.assertTrue((await ws.connect())[0])
         await get_channel_layer().group_send(
             notifications.GROUP, {"type": "send_notification", "message": {"action": "STARTED"}}

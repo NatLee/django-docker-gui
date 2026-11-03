@@ -57,7 +57,8 @@ INSTALLED_APPS = [
     "daphne",
     "channels",
     # django
-    'django.contrib.admin',
+    # Django admin, for superusers only (see backend/access.py)
+    'backend.access.SuperuserAdminConfig',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
@@ -228,10 +229,9 @@ REST_FRAMEWORK = {
         # 支援一般session進行後台登入
         "rest_framework.authentication.SessionAuthentication",
     ],
-    "DEFAULT_PERMISSION_CLASSES": (
-        # restframework的API必須登入才可使用
-        "rest_framework.permissions.IsAuthenticated",
-    ),
+    # The one access rule (backend/access.py): every API view is for active superusers only.
+    # Views don't set their own permission_classes.
+    "DEFAULT_PERMISSION_CLASSES": ("backend.access.SuperusersOnly",),
     # 使用JSON來render API而非HTML界面
     "DEFAULT_RENDERER_CLASSES": ("rest_framework.renderers.JSONRenderer",),
 }
@@ -256,7 +256,8 @@ SIMPLE_JWT = {
     "AUTH_HEADER_NAME": "HTTP_AUTHORIZATION",
     "USER_ID_FIELD": "id",
     "USER_ID_CLAIM": "user_id",
-    "USER_AUTHENTICATION_RULE": "rest_framework_simplejwt.authentication.default_user_authentication_rule",
+    # Only superusers get tokens, at login and at refresh (backend/access.py).
+    "USER_AUTHENTICATION_RULE": "backend.access.may_use_app",
     "AUTH_TOKEN_CLASSES": ("rest_framework_simplejwt.tokens.AccessToken",),
     "TOKEN_TYPE_CLAIM": "token_type",
     "TOKEN_USER_CLASS": "rest_framework_simplejwt.models.TokenUser",

@@ -17,7 +17,7 @@ class PullTests(ConsumerTestCase):
         return client, mock.patch("xterm.consumers.docker_client", return_value=client)
 
     async def pull(self, payload):
-        ws = communicator("/ws/pull-image/", self.protocols(self.member, "pull-image"))
+        ws = communicator("/ws/pull-image/", self.protocols(self.admin, "pull-image"))
         self.assertTrue((await ws.connect())[0])
         await ws.send_to(text_data=json.dumps({"action": "pull_image", "payload": payload}))
         messages = []
@@ -77,11 +77,11 @@ class PullTests(ConsumerTestCase):
             release.wait(5)  # the daemon takes its time
             yield {"status": "done"}
 
-        listener = communicator("/ws/notifications/", self.protocols(self.member, "notifications"))
+        listener = communicator("/ws/notifications/", self.protocols(self.admin, "notifications"))
         self.assertTrue((await listener.connect())[0])
         _, patched = self.patched_pull(pull)
         with patched:
-            ws = communicator("/ws/pull-image/", self.protocols(self.member, "pull-image"))
+            ws = communicator("/ws/pull-image/", self.protocols(self.admin, "pull-image"))
             self.assertTrue((await ws.connect())[0])
             await ws.send_to(text_data=json.dumps({"action": "pull_image", "payload": {"image": "big"}}))
             await get_channel_layer().group_send(notifications.GROUP, {"type": "send_notification", "message": "hi"})
@@ -95,7 +95,7 @@ class PullTests(ConsumerTestCase):
         pull = mock.Mock()
         _, patched = self.patched_pull(pull)
         with patched:
-            ws = communicator("/ws/pull-image/", self.protocols(self.member, "pull-image"))
+            ws = communicator("/ws/pull-image/", self.protocols(self.admin, "pull-image"))
             self.assertTrue((await ws.connect())[0])
             for message in ['{"action": "pull_image", "payload": {"image": ""}}', '{"action": "rm -rf"}', "[]", "x"]:
                 await ws.send_to(text_data=message)

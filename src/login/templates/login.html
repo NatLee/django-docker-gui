@@ -133,11 +133,13 @@
                },
                body: JSON.stringify(payload)
             })
-            .then(response => {
+            .then(async response => {
+               const data = await response.json().catch(() => ({}));
                if (!response.ok) {
-                  throw new Error('Login failed');
+                  // e.g. "No active superuser account found ...": this app is for superusers only
+                  throw new Error(data.detail || 'Login failed, please try again.');
                }
-               return response.json();
+               return data;
             })
             .then(data => {
                 // Store the JWT in localStorage
@@ -152,12 +154,16 @@
                 Swal.fire({
                     icon: 'error',
                     title: 'Oops...',
-                    text: 'Login failed, please try again.',
+                    text: error.message,
                 })
             });
         });
     }
     
+    // Why the last page sent us here, if it said (helper.js backToLogin)
+    document.getElementById('loginError').textContent = sessionStorage.getItem('loginMessage') || '';
+    sessionStorage.removeItem('loginMessage');
+
     // Check login status when the page loads
     checkLoginStatus();
     </script>

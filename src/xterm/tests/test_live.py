@@ -33,13 +33,22 @@ class LiveNotificationTests(TransactionTestCase):
 
     async def test_an_idle_listener_still_gets_notifications(self):
         # redis-py 8's default 5 s read timeout used to kill idle listeners after ~5 s.
-        user = await asyncio.to_thread(User.objects.create_user, "member", password="pw")
+        user = await asyncio.to_thread(User.objects.create_superuser, "admin", password="pw")
         ws = communicator("/ws/notifications/", ["notifications", token_protocol(access_token(user))])
         self.assertTrue((await ws.connect())[0])
         await asyncio.sleep(12)
         await get_channel_layer().group_send(notifications.GROUP, {"type": "send_notification", "message": "still here"})
         self.assertEqual(await ws.receive_json_from(timeout=5), {"message": "still here"})
         await ws.disconnect()
+
+
+@unittest.skipUnless(LIVE, SKIP_REASON)
+class LiveRqPageTests(TransactionTestCase):
+    def test_superusers_get_the_rq_dashboard_and_staff_does_not(self):
+        self.client.force_login(User.objects.create_superuser("admin", password="pw"))
+        self.assertContains(self.client.get("/api/__django-rq/"), "default")  # the queue
+        self.client.force_login(User.objects.create_user("staff", password="pw", is_staff=True))
+        self.assertEqual(self.client.get("/api/__django-rq/").status_code, 302)
 
 
 @unittest.skipUnless(LIVE, SKIP_REASON)
@@ -72,7 +81,7 @@ class LiveConsoleTests(ConsumerTestCase):
         return sorted(line for line in out if line and not line.startswith("1 ") and " sh" not in line)
 
     async def console(self, action, container):
-        ws = communicator("/ws/console/", self.protocols(self.member, f"container.{container.id}"))
+        ws = communicator("/ws/console/", self.protocols(self.admin, f"container.{container.id}"))
         self.assertTrue((await ws.connect())[0])
         await ws.send_to(text_data=json.dumps({"action": action, "payload": {"Id": container.id}}))
         return ws
