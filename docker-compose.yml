@@ -18,9 +18,6 @@ services:
       # Host names the site answers to, comma-separated. * means any.
       - DJANGO_ALLOWED_HOSTS=${DJANGO_ALLOWED_HOSTS:-*}
       - REDIS_URL=redis://redis:6379
-      # Optional Google sign-in, off unless GOOGLE_CLIENT_ID is set (see .env.example).
-      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
-      - GOOGLE_ALLOWED_DOMAINS=${GOOGLE_ALLOWED_DOMAINS:-}
     # attach docker sock to interact with the host docker
     volumes:
       - ./src:/src

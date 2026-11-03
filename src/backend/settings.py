@@ -51,19 +51,6 @@ ALLOWED_HOSTS = env_list("DJANGO_ALLOWED_HOSTS", "*")
 REDIS_URL = os.environ.get("REDIS_URL", "redis://redis:6379")
 
 
-# -------------- START - Google Auth Setting --------------
-SECURE_REFERRER_POLICY = "no-referrer-when-downgrade"
-# SECURE_CROSS_ORIGIN_OPENER_POLICY = "same-origin-allow-popups"
-SECURE_CROSS_ORIGIN_OPENER_POLICY = None
-# Google sign-in (POST /api/auth/google/token) is off unless GOOGLE_CLIENT_ID is set. Accounts it
-# creates can reach the Docker socket like any other, so only e-mail domains listed in
-# GOOGLE_ALLOWED_DOMAINS may sign up (none by default).
-SOCIAL_GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "").strip()
-LOGIN_REDIRECT_URL = "/"
-VALID_REGISTER_DOMAINS = env_list("GOOGLE_ALLOWED_DOMAINS")
-# --------------- END - Google Auth Setting -----------------
-
-
 # Application definition
 INSTALLED_APPS = [
     # websocket
@@ -83,7 +70,6 @@ INSTALLED_APPS = [
     'django_rq',
     # apps
     "custom_jwt",
-    "custom_auth",
     "login",
     'xterm',
 ]

@@ -1,4 +1,4 @@
-"""URLs: the pages and API of xterm, logins (JWT and optional Google), and the admin pages:
+"""URLs: the pages and API of xterm, the JWT login, and the admin pages:
 Django admin, the RQ dashboard and the API docs (Swagger / ReDoc, staff only)."""
 from django.contrib import admin
 from django.urls import include, path, re_path
@@ -12,7 +12,6 @@ URL_PREFIX = 'api'
 urlpatterns = [
     path(f"{URL_PREFIX}/__hidden_admin/", admin.site.urls),
     path(f'{URL_PREFIX}/__django-rq/', include('django_rq.urls')),
-    path(f"{URL_PREFIX}/auth/google/", include("custom_auth.urls")),
     path(f"{URL_PREFIX}/auth/", include("custom_jwt.urls")),
     path("login", include("login.urls"), name="login"),
     path("", include("xterm.urls"), name="xterm"),
