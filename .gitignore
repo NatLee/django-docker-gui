@@ -2,7 +2,7 @@
 
 log
 logs
-backend/staticfiles
+src/staticfiles
 
 *.pid
 

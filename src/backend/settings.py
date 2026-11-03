@@ -9,10 +9,12 @@ https://docs.djangoproject.com/en/4.2/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.2/ref/settings/
 """
-import sys
+import os
 from datetime import timedelta
 import logging
 from pathlib import Path
+
+from django.core.exceptions import ImproperlyConfigured
 
 logger = logging.getLogger(__name__)
 
@@ -22,20 +24,38 @@ print("-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-")
 BASE_DIR = Path(__file__).resolve().parent.parent
 print(f"---------- Project DIR: {BASE_DIR}")
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-uye!=@*gjois#e#8u*3law8=d4^&5s0sh-w*+r3_%+x5tn$lru'
+def env_flag(name: str, default: bool = False) -> bool:
+    """An on/off setting from the environment: 1/true/yes/on (any case) means on."""
+    value = os.environ.get(name)
+    return default if value is None else value.strip().lower() in ("1", "true", "yes", "on")
 
 
-# ----------------------------- START - DEBUG setting -------------------------------
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+def env_list(name: str, default: str = "") -> list[str]:
+    """A comma-separated setting from the environment, without empty items."""
+    return [item.strip() for item in os.environ.get(name, default).split(",") if item.strip()]
+
+
+# ----------------------------- START - DEBUG / SECRET_KEY -------------------------------
+# Off unless DJANGO_DEBUG says otherwise: debug pages show settings and stack traces.
+DEBUG = env_flag("DJANGO_DEBUG")
 print(f"---------- Debug mode: {DEBUG}")
-# ------------------------------ END - DEBUG setting --------------------------------
 
-ALLOWED_HOSTS = ['*']
+# Signs sessions and the login tokens (SimpleJWT uses it too), so whoever knows it can log in as
+# anyone, and every account can reach the Docker socket. No default, not even for debug mode;
+# docker-compose.yml reads it from .env (see .env.example).
+SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "").strip()
+if not SECRET_KEY:
+    raise ImproperlyConfigured(
+        "DJANGO_SECRET_KEY is not set. Put a long random value in .env (see .env.example)."
+    )
+# ------------------------------ END - DEBUG / SECRET_KEY --------------------------------
+
+# Host names this site answers to. WebSocket connections must come from a page on one of them.
+ALLOWED_HOSTS = env_list("DJANGO_ALLOWED_HOSTS", "*")
+
+# Redis carries the job queue (RQ) and the WebSocket notifications (Channels).
+REDIS_URL = os.environ.get("REDIS_URL", "redis://redis:6379")
 
 # -------------- START - CORS Setting --------------
 CORS_ALLOW_ALL_ORIGINS = True
@@ -64,7 +84,6 @@ INSTALLED_APPS = [
     # websocket
     "daphne",
     "channels",
-    "channels_redis",
     # django
     'django.contrib.admin',
     'django.contrib.auth',
@@ -184,7 +203,8 @@ APPEND_SLASH = False
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
 
 STATIC_URL = "api/__hidden_statics/"
-STATIC_ROOT = "staticfiles"
+# Filled by `collectstatic` when the container starts; WhiteNoise serves it when DEBUG is off.
+STATIC_ROOT = BASE_DIR / "staticfiles"
 STATICFILES_DIRS = [
     BASE_DIR / "static",
     # other folders containing static files
@@ -197,16 +217,8 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 RQ_QUEUES = {
     'default': {
-        'URL': 'redis://d-docker-redis:6379',  # Adjust the Redis URL as needed.
+        'URL': REDIS_URL,
         'DEFAULT_TIMEOUT': 500,
-        'USE_REDIS_CACHE': 'default',
-    },
-}
-
-CACHES = {
-    'default': {
-        'BACKEND': 'django.core.cache.backends.redis.RedisCache',
-        'LOCATION': 'redis://d-docker-redis:6379',
     },
 }
 
@@ -214,7 +226,7 @@ CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
         "CONFIG": {
-            "hosts": [("d-docker-redis", 6379)],
+            "hosts": [REDIS_URL],
         },
     },
 }

@@ -10,12 +10,22 @@ services:
     entrypoint: /src/docker-entrypoint.sh
     ports:
       - "8000:8000"
+    environment:
+      # Signs sessions and login tokens. Set it in .env (see .env.example); compose refuses to start without it.
+      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY:?Set DJANGO_SECRET_KEY in .env, see .env.example}
+      # Debug pages are off unless you set DJANGO_DEBUG=1 in .env.
+      - DJANGO_DEBUG=${DJANGO_DEBUG:-0}
+      # Host names the site answers to, comma-separated. * means any.
+      - DJANGO_ALLOWED_HOSTS=${DJANGO_ALLOWED_HOSTS:-*}
+      - REDIS_URL=redis://redis:6379
     # attach docker sock to interact with the host docker
-    volumes: 
+    volumes:
       - ./src:/src
       - ./supervisord.conf:/etc/supervisor/conf.d/supervisord.conf:rw
       - /var/run/docker.sock:/var/run/docker.sock:rw
-  
+    depends_on:
+      - redis
+
   redis:
     image: redis:alpine
     container_name: d-docker-redis

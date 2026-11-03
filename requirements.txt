@@ -21,7 +21,6 @@ google-auth==2.62.0
 
 # Background jobs on Redis
 redis==8.1.0
-django-redis==6.0.0
 rq==2.12.0
 django-rq==4.2.0
 
