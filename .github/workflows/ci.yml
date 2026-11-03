@@ -46,7 +46,7 @@ jobs:
           docker exec d-docker-web supervisorctl -c /etc/supervisor/conf.d/supervisord.conf status | tee status.txt
           test "$(grep -c RUNNING status.txt)" = 2
           docker exec d-docker-web python manage.py shell -c "from django.conf import settings; assert not settings.DEBUG"
-          ./dev-create-superuser.sh ci ci-password-1234
+          bash dev-create-superuser.sh ci ci-password-1234
       - name: Live tests inside the app container (real Docker daemon and Redis)
         run: docker exec -e LIVE_TESTS=1 d-docker-web python manage.py test xterm.tests.test_live -v 2
       - uses: actions/setup-python@v7
