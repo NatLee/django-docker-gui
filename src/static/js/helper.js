@@ -92,20 +92,11 @@ function createToastAlert(msg, isFailure) {
        </div>
    `;
 
-   const toastContainer = document.getElementById('toastContainer');
-   toastContainer.insertAdjacentHTML('beforeend', toastHtml);
-   document.getElementById(toastId).querySelector(".toast-body").textContent = msg;
-
-   const toastElement = $(`#${toastId}`);
-   toastElement.toast('show');
-
-   toastElement.on('hidden.bs.toast', function () {
-      toastElement.remove();
-   });
-
-   setTimeout(() => {
-      toastElement.toast('hide');
-   }, 2000);
+   document.getElementById('toastContainer').insertAdjacentHTML('beforeend', toastHtml);
+   const toastElement = document.getElementById(toastId);
+   toastElement.querySelector('.toast-body').textContent = msg;
+   toastElement.addEventListener('hidden.bs.toast', () => toastElement.remove());
+   new bootstrap.Toast(toastElement, { delay: 2000 }).show();
 }
 
 
