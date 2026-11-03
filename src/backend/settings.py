@@ -55,11 +55,12 @@ REDIS_URL = os.environ.get("REDIS_URL", "redis://redis:6379")
 SECURE_REFERRER_POLICY = "no-referrer-when-downgrade"
 # SECURE_CROSS_ORIGIN_OPENER_POLICY = "same-origin-allow-popups"
 SECURE_CROSS_ORIGIN_OPENER_POLICY = None
-SOCIAL_GOOGLE_CLIENT_ID = (
-    "376808175534-d6mefo6b1kqih3grjjose2euree2g3cs.apps.googleusercontent.com"
-)
+# Google sign-in (POST /api/auth/google/token) is off unless GOOGLE_CLIENT_ID is set. Accounts it
+# creates can reach the Docker socket like any other, so only e-mail domains listed in
+# GOOGLE_ALLOWED_DOMAINS may sign up (none by default).
+SOCIAL_GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "").strip()
 LOGIN_REDIRECT_URL = "/"
-VALID_REGISTER_DOMAINS = ["gmail.com"]
+VALID_REGISTER_DOMAINS = env_list("GOOGLE_ALLOWED_DOMAINS")
 # --------------- END - Google Auth Setting -----------------
 
 
