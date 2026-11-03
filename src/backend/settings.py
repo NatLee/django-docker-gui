@@ -57,15 +57,6 @@ ALLOWED_HOSTS = env_list("DJANGO_ALLOWED_HOSTS", "*")
 # Redis carries the job queue (RQ) and the WebSocket notifications (Channels).
 REDIS_URL = os.environ.get("REDIS_URL", "redis://redis:6379")
 
-# -------------- START - CORS Setting --------------
-CORS_ALLOW_ALL_ORIGINS = True
-CORS_ALLOW_CREDENTIALS = True
-CSRF_TRUSTED_ORIGINS = [
-    "http://127.0.0.1",
-    "http://localhost",
-]
-# -------------- END - CORS Setting -----------------
-
 
 # -------------- START - Google Auth Setting --------------
 SECURE_REFERRER_POLICY = "no-referrer-when-downgrade"
@@ -107,7 +98,6 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     "whitenoise.middleware.WhiteNoiseMiddleware",
     'django.contrib.sessions.middleware.SessionMiddleware',
-    "corsheaders.middleware.CorsMiddleware",
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',

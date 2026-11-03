@@ -10,9 +10,6 @@ drf-yasg==1.21.18
 # Static files when DEBUG is off
 whitenoise==6.12.0
 
-# Cross-origin requests
-django-cors-headers==4.9.0
-
 # Logging
 loguru==0.7.3
 
