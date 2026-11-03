@@ -1,8 +1,7 @@
-function handleImageAction(html_btn, action) {
-    const url = action === 'run' ? '/api/images/run' : '/api/images/remove';
-    apiFetch(url, {
+function handleImageAction(imageID, action) {
+    apiFetch(`/api/images/${action}`, {
         method: "POST",
-        body: JSON.stringify({ 'image_id': html_btn.dataset.id }),
+        body: JSON.stringify({ 'image_id': imageID }),
     });
 }
 
@@ -16,13 +15,13 @@ function fetchAndDisplayImages() {
             data.images.forEach(item => {
                 table.insertAdjacentHTML('beforeend', `
                 <tr>
-                    <td>${item.name}</td>
-                    <td>${item.short_id}</td>
-                    <td>${item.size} MB</td>
+                    <td>${escapeHtml(item.name)}</td>
+                    <td>${escapeHtml(item.short_id)}</td>
+                    <td>${escapeHtml(item.size)} MB</td>
                     <td>
                         <div class='d-flex'>
-                            <button data-id="${item.short_id}" class="btn btn-success btn-sm me-3" onclick="handleImageAction(this, 'run')">Run</button>
-                            <button data-id="${item.short_id}" class="btn btn-danger btn-sm" onclick="handleImageAction(this, 'remove')">Remove</button>
+                            <button data-action="run" data-id="${escapeHtml(item.short_id)}" class="btn btn-success btn-sm me-3">Run</button>
+                            <button data-action="remove" data-id="${escapeHtml(item.short_id)}" class="btn btn-danger btn-sm">Remove</button>
                         </div>
                     </td>
                 </tr>`);
@@ -40,5 +39,13 @@ function onNotification(message) {
     }
 }
 
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('imageTableBody').addEventListener('click', (event) => {
+        const button = event.target.closest('button[data-action]');
+        if (button) {
+            handleImageAction(button.dataset.id, button.dataset.action);
+        }
+    });
+});
 document.addEventListener('DOMContentLoaded', fetchAndDisplayImages);
 document.addEventListener('DOMContentLoaded', () => listenForNotifications(onNotification));

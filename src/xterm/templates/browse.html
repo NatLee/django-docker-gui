@@ -177,13 +177,13 @@
         itemContainer.innerHTML = `
           <div class="d-flex border-start border-primary border-5 p-4 shadow-lg mb-4 bg-body rounded col-sm-8 col-12">
             <div class="col d-flex flex-column">
-              <h5>${item.name}${official}</h5>
-              <p>${item.description || 'No description available.'}</p>
-              <small class="text-muted">★ ${item.star_count}</small>
+              <h5>${escapeHtml(item.name)}${official}</h5>
+              <p>${escapeHtml(item.description || 'No description available.')}</p>
+              <small class="text-muted">★ ${escapeHtml(item.star_count)}</small>
             </div>
             <div class="flex-shrink-0 d-flex justify-content-center ms-2">
               <div class="align-self-end">
-                <button type="button" class="btn btn-md btn-primary text-nowrap" data-bs-toggle="modal" data-bs-target="#imageModal" data-bs-name="${item.name}">Pull</button>
+                <button type="button" class="btn btn-md btn-primary text-nowrap" data-bs-toggle="modal" data-bs-target="#imageModal" data-bs-name="${escapeHtml(item.name)}">Pull</button>
               </div>
             </div>
           </div>

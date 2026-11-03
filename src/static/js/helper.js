@@ -68,18 +68,25 @@ function listenForNotifications(onMessage) {
 // Events that end a job (xterm/notifications.py); after any of them the lists are reloaded.
 const JOB_DONE_EVENTS = ["CREATED", "STARTED", "STOPPED", "RESTARTED", "REMOVED", "FAILED"];
 
+// Container names and commands, image descriptions from Docker Hub and daemon messages are not
+// ours: everything that goes into HTML goes through here first.
+function escapeHtml(value) {
+   const entities = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+   return String(value ?? '').replace(/[&<>"']/g, (c) => entities[c]);
+}
+
 function uniqueID() {
-   return Math.random().toString(36).substr(2, 16);
+   return Math.random().toString(36).slice(2, 18);
 }
 
 
 function createToastAlert(msg, isFailure) {
-   const toastId = uniqueID();
+   const toastId = `toast-${uniqueID()}`;
    const toastColorClass = isFailure ? 'bg-danger' : 'bg-primary';
    const toastHtml = `
        <div id="${toastId}" class="toast align-items-center text-white ${toastColorClass} border-0" role="alert" aria-live="assertive" aria-atomic="true">
            <div class="d-flex">
-               <div class="toast-body">${msg}</div>
+               <div class="toast-body"></div>
                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
            </div>
        </div>
@@ -87,6 +94,7 @@ function createToastAlert(msg, isFailure) {
 
    const toastContainer = document.getElementById('toastContainer');
    toastContainer.insertAdjacentHTML('beforeend', toastHtml);
+   document.getElementById(toastId).querySelector(".toast-body").textContent = msg;
 
    const toastElement = $(`#${toastId}`);
    toastElement.toast('show');

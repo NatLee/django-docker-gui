@@ -1,8 +1,19 @@
-function handleContainerAction(html_btn, cmd) {
+// Console and Attach open the terminal page; the others queue a job.
+const TERMINAL_ACTIONS = ['shell', 'attach'];
+
+function handleContainerAction(containerID, cmd) {
+    if (TERMINAL_ACTIONS.includes(cmd)) {
+        window.open(`/console/${cmd}/${encodeURIComponent(containerID)}`);
+        return;
+    }
     apiFetch('/api/containers/start-stop-remove', {
         method: "POST",
-        body: JSON.stringify({ 'id': html_btn.dataset.id, 'cmd': cmd }),
+        body: JSON.stringify({ 'id': containerID, 'cmd': cmd }),
     });
+}
+
+function actionButton(label, style, cmd, id) {
+    return `<button class="btn ${style} btn-sm me-3" data-cmd="${cmd}" data-id="${escapeHtml(id)}">${label}</button>`;
 }
 
 function fetchAndDisplayContainers() {
@@ -16,32 +27,28 @@ function fetchAndDisplayContainers() {
                 let actionButtons = '';
 
                 if (item.status === "running") {
-                    actionButtons = `
-                        <button class="btn btn-info btn-sm me-3" onclick="window.open('/console/shell/${item.id}')">Console</button>
-                        <button class="btn btn-info btn-sm me-3" onclick="window.open('/console/attach/${item.id}')">Attach</button>
-                        <button data-id="${item.id}" class="btn btn-warning btn-sm me-3" onclick="handleContainerAction(this, 'restart')">Restart</button>
-                        <button data-id="${item.id}" class="btn btn-warning btn-sm me-3" onclick="handleContainerAction(this, 'stop')">Stop</button>
-                    `;
+                    actionButtons = actionButton('Console', 'btn-info', 'shell', item.id)
+                        + actionButton('Attach', 'btn-info', 'attach', item.id)
+                        + actionButton('Restart', 'btn-warning', 'restart', item.id)
+                        + actionButton('Stop', 'btn-warning', 'stop', item.id);
                 } else {
-                    actionButtons = `
-                        <button data-id="${item.id}" class="btn btn-success btn-sm me-3" onclick="handleContainerAction(this, 'start')">Start</button>
-                        <button data-id="${item.id}" class="btn btn-danger btn-sm" onclick="handleContainerAction(this, 'remove')">Remove</button>
-                    `;
+                    actionButtons = actionButton('Start', 'btn-success', 'start', item.id)
+                        + actionButton('Remove', 'btn-danger', 'remove', item.id);
                 }
 
                 table.insertAdjacentHTML('beforeend', `
                 <tr>
-                    <td>${item.name}</td>
-                    <td>${item.image_tag || '&lt;none&gt;'}</td>
-                    <td>${item.short_id}</td>
-                    <td>${item.command}</td>
+                    <td>${escapeHtml(item.name)}</td>
+                    <td>${escapeHtml(item.image_tag || '<none>')}</td>
+                    <td>${escapeHtml(item.short_id)}</td>
+                    <td>${escapeHtml(item.command)}</td>
                     <td>
                         <div class='d-flex'>
-                            <span class="btn ${item.status === "running" ? 'btn-success' : 'btn-secondary'} btn-sm" id="${item.id}-span">${item.status}</span>
+                            <span class="btn ${item.status === "running" ? 'btn-success' : 'btn-secondary'} btn-sm">${escapeHtml(item.status)}</span>
                         </div>
                     </td>
                     <td>
-                        <div class='d-flex' id="actions-${item.id}">
+                        <div class='d-flex' id="actions-${escapeHtml(item.id)}">
                             ${actionButtons}
                         </div>
                     </td>
@@ -67,5 +74,13 @@ function onNotification(message) {
     }
 }
 
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('containerTableBody').addEventListener('click', (event) => {
+        const button = event.target.closest('button[data-cmd]');
+        if (button) {
+            handleContainerAction(button.dataset.id, button.dataset.cmd);
+        }
+    });
+});
 document.addEventListener('DOMContentLoaded', fetchAndDisplayContainers);
 document.addEventListener('DOMContentLoaded', () => listenForNotifications(onNotification));
