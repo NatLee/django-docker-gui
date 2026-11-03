@@ -17,8 +17,8 @@ the WebSockets, RQ for the slow Docker calls, and xterm.js in the browser, all i
   <img src="docs/images/screenshot-containers.webp" alt="The Containers page: a table with name, image, ID, command and status of each container, and Console, Attach, Restart, Stop, Start and Remove buttons" width="900">
 </p>
 
-> **It talks to the Docker socket, so it is root on the host.** Every account can run anything in any
-> container, including this one. Keep it on a trusted machine or network: see [Security](#security).
+> **For superusers only.** The app holds the host's Docker socket, which amounts to root on the host, so
+> only superuser accounts can log in. Keep it on a trusted machine or network: see [Security](#security).
 
 ## How it works
 
@@ -52,7 +52,7 @@ writes its PID to a file first, so that closing the tab can end it again; Docker
 that, and a shell left behind keeps running. **Attach** connects to the container's main process instead,
 the way `docker attach` does: resizing is ignored there because that terminal is shared, and closing the
 tab leaves the process alone. **Terminal** is the same kind of session with bash on a pseudo-terminal in
-`d-docker-web` itself, for superusers only.
+`d-docker-web` itself.
 
 <p align="center">
   <picture>
@@ -85,8 +85,9 @@ bash dev-create-superuser.sh admin 'pick-a-password'
 ```
 
 Then open http://localhost:8000 and log in. The first start applies the database migrations and
-collects the static files, which takes a few seconds. Without arguments the script creates `admin` with
-the password `1234`, which is only good for a quick try on your own machine.
+collects the static files, which takes a few seconds. The script creates a superuser, the only kind of
+account that can log in. Without arguments it creates `admin` with the password `1234`, which is only
+good for a quick try on your own machine.
 
 ## Using it
 
@@ -96,7 +97,7 @@ the password `1234`, which is only good for a quick try on your own machine.
 - **Images**: every image with its size. Run starts a new container from it in the background (with a
   TTY); Remove deletes the image.
 - **Docker Hub**: search, then Pull with an optional version (empty means `latest`).
-- **Terminal**: a shell in `d-docker-web` itself (the container with the Docker socket), for superusers.
+- **Terminal**: a shell in `d-docker-web` itself, the container with the Docker socket.
 
 <p align="center">
   <img src="docs/images/screenshot-console.webp" alt="A console in the nginx container: nginx -v, uptime, and printf printing 你好 from the container's hostname" width="900">
@@ -118,8 +119,6 @@ Everything is set in `.env` next to `docker-compose.yml` (see `.env.example`):
 | `DJANGO_SECRET_KEY` | none, required | Signs sessions and login tokens. Anyone who knows it can log in as anyone. |
 | `DJANGO_DEBUG` | `0` | `1` shows Django's debug pages and serves edited static files without a restart. |
 | `DJANGO_ALLOWED_HOSTS` | `*` | Host names the site answers to, comma-separated. WebSockets must come from a page on one of them. |
-| `GOOGLE_CLIENT_ID` | empty (off) | Turns on `POST /api/auth/google/token`, a Google sign-in the login page doesn't use. |
-| `GOOGLE_ALLOWED_DOMAINS` | empty | E-mail domains that Google sign-in may create accounts for. |
 
 `docker-compose.yml` also sets `REDIS_URL` (`redis://redis:6379`). The app finds Docker the way the Docker
 CLI does (`DOCKER_HOST` and friends, otherwise `/var/run/docker.sock`).
@@ -131,21 +130,27 @@ Good to know:
 - **Logs**: `docker logs d-docker-web` shows the web server, the WebSocket consumers and the worker.
 - **Data**: `./src` is mounted into the container (handy for hot reload), so the SQLite database with the
   users ends up in `src/db.sqlite3`.
-- **Admin pages** (staff accounts): Django admin at `/api/__hidden_admin/`, the RQ queue at
+- **Admin pages** (superusers, like everything else): Django admin at `/api/__hidden_admin/`, the RQ queue at
   `/api/__django-rq/`, the API docs at `/api/__hidden_swagger` and `/api/__hidden_redoc`.
 - **Logins** last 60 hours (refresh token: 1 day). Changing `DJANGO_SECRET_KEY` logs everyone out.
 
 ## Security
 
-This is a tool for one person or a small trusted team on one machine:
+This is a tool for one person or a small trusted team on one machine.
 
-- **Every account can do everything.** There are no per-container permissions, and whoever can open a
-  Console can open one in `d-docker-web`, which has the Docker socket. The superuser-only Terminal page is
-  a convenience, not a boundary. Only create accounts for people you'd give root on the host.
+- **Only superusers can use it, everywhere.** Anyone who can open a Console can open one in
+  `d-docker-web`, which has the Docker socket, and from there do anything on the host. So there's no point
+  in smaller roles: the login, every API call, every WebSocket, the admin pages and the RQ pages all let in
+  active superusers and nobody else. That rule lives in one place, `src/backend/access.py`. Other accounts
+  get "No active superuser account found…" at login, the same answer as a wrong password, and someone who
+  loses superuser is sent back to the login page with the reason. Only make people superusers if you'd give
+  them root on the host.
+- **Several people on one machine?** Use [Dev Dock Manager](https://github.com/NatLee/dev-dock-manager)
+  instead: it gives each person their own desktop container rather than the whole Docker daemon.
 - **Don't put it on the internet as it is.** It serves plain HTTP with Django's development server. If you
   need it from elsewhere, put it behind a reverse proxy with HTTPS and set `DJANGO_ALLOWED_HOSTS`.
-- What it does to stay out of trouble: no default secret key, debug off, a valid token on every API call and
-  every WebSocket (inactive accounts are refused), no cross-site API access (no CORS), text from
+- What it does to stay out of trouble: no default secret key, debug off, a superuser's valid token on every
+  API call and every WebSocket, no cross-site API access (no CORS), text from
   containers and Docker Hub is escaped before it reaches the page, and every script from a CDN is pinned to
   one version and checked against its hash.
 
@@ -153,8 +158,11 @@ This is a tool for one person or a small trusted team on one machine:
 
 - Create `.env` with a `DJANGO_SECRET_KEY` as in the quick start. Old login tokens stop working, so
   everyone logs in again.
-- Delete `src/custom_auth/migrations/0001_initial.py` before you `git pull`: older versions generated it at
-  every start, and now it's part of the repo (same name and content, so the database is fine).
+- Only superusers can log in now. Make the people who should keep access superusers in the Django admin
+  (`/api/__hidden_admin/`), or with `python manage.py createsuperuser` in `d-docker-web`.
+- Google sign-in is gone. Delete the left-over `src/custom_auth/` folder (only generated files are in it).
+  An older database keeps an empty `social_account` table, which does no harm; to drop it:
+  `docker exec d-docker-web python manage.py shell -c "from django.db import connection; connection.cursor().execute('DROP TABLE IF EXISTS social_account')"`
 - Logs no longer go to `src/logs/`; use `docker logs d-docker-web`.
 
 ## Development
@@ -179,8 +187,8 @@ docker exec -e LIVE_TESTS=1 d-docker-web python manage.py test xterm.tests.test_
 - The diagrams are HTML in `docs/images/src/`; the comment at the top of each file says how to render it.
 
 Where things are: `src/xterm/` has the pages, the API (`views.py`), the jobs (`task.py`), the WebSocket
-consumers (`consumers.py`), their login check (`ws_auth.py`), who may do what (`permissions.py`) and the
-terminal sessions (`terminal.py`). `src/static/js/` has the page scripts; `terminal-session.js` is the one
+consumers (`consumers.py`), their token check (`ws_auth.py`) and the terminal sessions (`terminal.py`).
+Who may use the app is `src/backend/access.py`, for every part of it. `src/static/js/` has the page scripts; `terminal-session.js` is the one
 terminal all three terminal pages use.
 
 ## Related
