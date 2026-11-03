@@ -9,7 +9,7 @@ from django.http import JsonResponse
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
 
 from xterm.task import run_image_task
@@ -20,6 +20,7 @@ from xterm.task import stop_container_task
 from xterm.task import restart_container_task
 
 from xterm.consumers import send_notification_to_group
+from xterm.permissions import CanManageDocker
 
 class Index(APIView):
     permission_classes = (AllowAny,)
@@ -59,7 +60,7 @@ class BrowseDockerHub(APIView):
         return render(request, 'browse.html')
 
 class BrowseDockerHubView(APIView):
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (CanManageDocker,)
     def get(self, request):
         page_number = request.GET.get('page','1')
         q = request.GET.get('q','')
@@ -74,7 +75,7 @@ class BrowseDockerHubView(APIView):
         })
 
 class ContainersListView(APIView):
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (CanManageDocker,)
     def get(self, request, format=None):
         client = docker.from_env()
         containers = client.containers.list(all=True)
@@ -106,7 +107,7 @@ class ContainersListView(APIView):
         })
 
 class ImagesListView(APIView):
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (CanManageDocker,)
     def get(self, request, format=None):
         client = docker.from_env()
         images = client.images.list()
@@ -132,7 +133,7 @@ class ImagesListView(APIView):
         })
 
 class ConsoleView(APIView):
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (CanManageDocker,)
     def get(self, request, id, action):
         client = docker.from_env()
         container = client.containers.get(id)
@@ -153,18 +154,21 @@ class ConsoleView(APIView):
 
 
 @api_view(['POST'])
+@permission_classes([CanManageDocker])
 def run_image(request):
     image_id = request.data['image_id']
     job = run_image_task.delay(image_id)  # Queue the job
     return JsonResponse({"task_id": job.id})  # Use job.id to get the job ID
 
 @api_view(['POST'])
+@permission_classes([CanManageDocker])
 def remove_image(request):
     image_id = request.data['image_id']
     job = remove_image_task.delay(image_id)
     return JsonResponse({"task_id": job.id})  # Use job.id here as well
 
 @api_view(['POST'])
+@permission_classes([CanManageDocker])
 def start_stop_remove(request):
     cmd = request.data['cmd']
     _id = request.data['id']

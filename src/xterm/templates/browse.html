@@ -265,9 +265,7 @@
         open_once_only = false;
       }
 
-      var ws_scheme = window.location.protocol == "https:" ? "wss" : "ws";
-      var ws_path = ws_scheme + '://' + window.location.host + "/ws/pull-image/";
-      var socket = new WebSocket(ws_path);
+      var socket = openSocket("/ws/pull-image/", "pull-image");
   
       // Convert and send a message to the server
       function sendWebSocketMessage(action, message) {

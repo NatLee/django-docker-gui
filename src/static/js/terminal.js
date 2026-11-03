@@ -31,16 +31,7 @@ function setupWebSocketConnection(){
     // Expose the terminal object to the window
     window.term = term;
 
-    // Get the access token from local storage
-    const accessToken = localStorage.getItem('accessToken');
-    var ws_scheme = window.location.protocol == "https:" ? "wss" : "ws";
-    var ws_path = ws_scheme + '://' + window.location.host + `/ws/terminal/`;
-
-    // Token need to be encoded with base64
-    const tokenInfo = `token.${btoa(accessToken)}`;
-    // Generate a unique identifier for the connection
-    const connectionId = `terminal.${generateConnectionId()}`;
-    const socket = new WebSocket(ws_path, [tokenInfo, connectionId]);
+    const socket = openSocket('/ws/terminal/', `terminal.${generateConnectionId()}`);
 
     // Expose the socket object to the window
     window.socket = socket;

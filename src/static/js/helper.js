@@ -21,6 +21,15 @@ async function verifyAccessToken() {
    }
 }
 
+// Every WebSocket of this app logs in with the access token offered as a subprotocol,
+// "token.<base64 of the token>", next to a second subprotocol that names the connection (the
+// server answers with that one). Subprotocols can't contain "=", so the base64 padding is dropped.
+function openSocket(path, name) {
+   const scheme = window.location.protocol === "https:" ? "wss" : "ws";
+   const token = btoa(localStorage.getItem('accessToken') || '').replace(/=+$/, '');
+   return new WebSocket(`${scheme}://${window.location.host}${path}`, [name, `token.${token}`]);
+}
+
 function uniqueID() {
    return Math.random().toString(36).substr(2, 16);
 }

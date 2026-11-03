@@ -15,73 +15,54 @@ import docker
 from asgiref.sync import sync_to_async
 from asgiref.sync import async_to_sync
 
-from django.contrib.auth.models import User
-
-from rest_framework_simplejwt.tokens import AccessToken
-from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
-
 from channels.layers import get_channel_layer
 from channels.generic.websocket import AsyncWebsocketConsumer
-from channels.exceptions import StopConsumer
+
+from xterm.permissions import can_manage_docker, can_open_host_shell
+from xterm.ws_auth import read_subprotocols, user_for_token
 
 import logging
 logger = logging.getLogger(__name__)
 
-class ConsoleConsumer(AsyncWebsocketConsumer):
+# Close codes sent before the handshake is accepted (the browser sees a refused connection).
+CLOSE_NOT_LOGGED_IN = 4001
+CLOSE_FORBIDDEN = 4002
+CLOSE_SHELL_FAILED = 4005
+
+
+class AuthenticatedConsumer(AsyncWebsocketConsumer):
+    """Accepts a connection only from a logged-in user that `allowed()` lets in."""
+
+    user = None
+
+    def allowed(self, user) -> bool:
+        return can_manage_docker(user)
+
     async def connect(self):
-        self.docker_socket = None
-        self.group_name = 'console'
-
-        subprotocol_container = None
-        token = None
-
-        # Check for subprotocols
-        if self.scope['subprotocols']:
-            try:
-                for protocol in self.scope['subprotocols']:
-                    if protocol.startswith('token.'):
-                        # Extract token from subprotocol
-                        base64_encoded_token = protocol.split('.', 1)[1]
-                        # Decode token
-                        token = base64.b64decode(base64_encoded_token).decode()
-                    elif protocol.startswith('container.'):
-                        # Use the `auth` ticket as the subprotocol
-                        subprotocol_container = protocol
-            except Exception as e:
-                logger.error(f"Error parsing subprotocols: {e}")
-                await self.close(code=4000)
-                return
-            if not token or not subprotocol_container:
-                logger.error("Missing required subprotocols")
-                await self.close(code=4000)
-                return
-        else:
-            logger.error("No subprotocols provided")
-            await self.close(code=4000)
+        offered = read_subprotocols(self.scope.get("subprotocols"))
+        user = await user_for_token(offered.token)
+        if user is None:
+            logger.warning("%s refused: no valid access token", self.scope["path"])
+            await self.close(code=CLOSE_NOT_LOGGED_IN)
             return
+        if not self.allowed(user):
+            logger.warning("%s refused for %s: not allowed", self.scope["path"], user)
+            await self.close(code=CLOSE_FORBIDDEN)
+            return
+        self.user = user
+        await self.accept(offered.accept_with)
+        await self.connected()
 
-        try:
-            # Verify JWT token
-            access_token = AccessToken(token)
-            # Get user from token
-            user = await sync_to_async(User.objects.get)(id=access_token['user_id'])
-        except User.DoesNotExist:
-            print(f"User not found")
-            await self.close(code=4001)
-            raise StopConsumer("User Authentication failed")
-        except (InvalidToken, TokenError) as e:
-            print(f"Token invalid: {e}")
-            await self.close(code=4001)
-            raise StopConsumer("Token Authentication failed")
+    async def connected(self):
+        """Runs once the handshake is accepted."""
 
-        await self.accept(subprotocol_container)
-        await self.channel_layer.group_add(self.group_name, self.channel_name)
-        print(f"[{self.group_name}][{self.channel_name}] connected.")
+
+class ConsoleConsumer(AuthenticatedConsumer):
+    docker_socket = None
 
     async def disconnect(self, code):
-        print(f"[{self.group_name}][{self.channel_name}] disconnected.")
-        await self.channel_layer.group_discard(self.group_name, self.channel_name)
-        await self.cleanup()
+        if self.user is not None:
+            await self.cleanup()
 
     async def cleanup(self):
         session_data = await sync_to_async(self.scope["session"].load)()
@@ -231,18 +212,7 @@ class ConsoleConsumer(AsyncWebsocketConsumer):
         self.scope["session"].update(session_data)
         await sync_to_async(self.scope["session"].save)()
 
-class PullConsumer(AsyncWebsocketConsumer):
-    async def connect(self):
-        self.docker_socket = None
-        self.group_name = 'pull-image'
-        await self.accept()
-        await self.channel_layer.group_add(self.group_name, self.channel_name)
-        print(f"[{self.group_name}][{self.channel_name}] connected.")
-
-    async def disconnect(self, code):
-        print(f"[{self.group_name}][{self.channel_name}] disconnected.")
-        await self.channel_layer.group_discard(self.group_name, self.channel_name)
-
+class PullConsumer(AuthenticatedConsumer):
     async def receive(self, text_data):
         message = json.loads(text_data)
         # Route message to appropriate handler
@@ -287,25 +257,15 @@ class PullConsumer(AsyncWebsocketConsumer):
         await asyncio.sleep(1.5)
         await self.close()
 
-class NotificationConsumer(AsyncWebsocketConsumer):
-    async def connect(self):
-        self.room_name = 'notifications'  # Can be dynamic based on path
-        self.room_group_name = f'group_{self.room_name}'
+class NotificationConsumer(AuthenticatedConsumer):
+    room_group_name = 'group_notifications'
 
-        # Join room group
-        await self.channel_layer.group_add(
-            self.room_group_name,
-            self.channel_name
-        )
-
-        await self.accept()
+    async def connected(self):
+        await self.channel_layer.group_add(self.room_group_name, self.channel_name)
 
     async def disconnect(self, close_code):
-        # Leave room group
-        await self.channel_layer.group_discard(
-            self.room_group_name,
-            self.channel_name
-        )
+        if self.user is not None:
+            await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
 
     # Receive message from room group
     async def send_notification(self, event):
@@ -317,66 +277,16 @@ class NotificationConsumer(AsyncWebsocketConsumer):
         }))
 
 
-class TerminalConsumer(AsyncWebsocketConsumer):
+class TerminalConsumer(AuthenticatedConsumer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.child_pid = None
         self.fd = None
 
-    async def connect(self):
-        logger.info("WebSocket connection attempt")
-        subprotocol_auth = None
-        token = None
+    def allowed(self, user) -> bool:
+        return can_open_host_shell(user)
 
-        # Check for subprotocols
-        if self.scope['subprotocols']:
-            try:
-                for protocol in self.scope['subprotocols']:
-                    if protocol.startswith('token.'):
-                        # Extract token from subprotocol
-                        base64_encoded_token = protocol.split('.', 1)[1]
-                        # Decode token
-                        token = base64.b64decode(base64_encoded_token).decode()
-                        selected_protocol = protocol  # 保存選中的 protocol
-                        break
-            except Exception as e:
-                logger.error(f"Error parsing subprotocols: {e}")
-                await self.close(code=4000)
-                return
-            if not token:
-                logger.error("Missing required subprotocols")
-                await self.close(code=4000)
-                return
-        else:
-            logger.error("No subprotocols provided")
-            await self.close(code=4000)
-            return
-
-        # Verify JWT token
-        try:
-            access_token = AccessToken(token)
-            user = await sync_to_async(User.objects.get)(id=access_token['user_id'])
-            logger.info(f"User authenticated: {user}")
-
-            # Check if user is admin
-            if not user.is_superuser:
-                logger.error("User is not admin")
-                await self.close(code=4002)
-                return
-
-        except (InvalidToken, TokenError) as e:
-            logger.error(f"Token invalid: {e}")
-            await self.close(code=4001)
-            return
-        except User.DoesNotExist:
-            logger.error("User not found")
-            await self.close(code=4001)
-            return
-
-        # Accept the WebSocket connection with the subprotocol token
-        await self.accept(selected_protocol)
-        logger.info("WebSocket connection accepted")
-
+    async def connected(self):
         # Start the SSH connection
         if self.child_pid is None:
             try:
@@ -396,7 +306,7 @@ class TerminalConsumer(AsyncWebsocketConsumer):
                 logger.info("Bash Shell started")
             except Exception as e:
                 logger.error(f"Error starting Bash shell: {e}")
-                await self.close(code=4005)
+                await self.close(code=CLOSE_SHELL_FAILED)
                 return
 
     async def disconnect(self, close_code):

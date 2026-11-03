@@ -84,15 +84,7 @@ function setupWebSocketConnection(containerID, action){
     Terminal.applyAddon(fit);
     Terminal.applyAddon(fullscreen);
 
-    const accessToken = localStorage.getItem('accessToken');
-    var ws_scheme = window.location.protocol == "https:" ? "wss" : "ws";
-    var ws_path = ws_scheme + '://' + window.location.host + `/ws/console/`;
-
-    // Token need to be encoded with base64
-    const tokenInfo = `token.${btoa(accessToken)}`;
-    // Create a ticket for subprotocols
-    const ticket = `container.${`${containerID}`}`;
-    const socket = new WebSocket(ws_path, [tokenInfo, ticket]);
+    const socket = openSocket('/ws/console/', `container.${containerID}`);
 
     // Expose the socket object to the window
     window.socket = socket;

@@ -76,9 +76,7 @@ function fetchAndDisplayImages() {
 
 function notificationWebsocket() {
 
-    var ws_scheme = window.location.protocol == "https:" ? "wss" : "ws";
-    var ws_path = ws_scheme + '://' + window.location.host + "/ws/notifications/";
-    var socket = new WebSocket(ws_path);
+    var socket = openSocket("/ws/notifications/", "notifications");
 
     socket.onmessage = function (event) {
         const data = JSON.parse(event.data);
