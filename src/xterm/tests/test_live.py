@@ -1,7 +1,7 @@
-"""The console against a real Docker daemon. Skipped unless DOCKER_LIVE_TESTS=1.
+"""Tests against the real Docker daemon and Redis. Skipped unless LIVE_TESTS=1.
 
-CI runs these inside the started app container (it has the Docker socket). They create their
-own containers, named django-docker-gui-live-<random>, and remove them again.
+CI runs these inside the started app container, which has the Docker socket and Redis. They
+create their own containers, named django-docker-gui-live-<random>, and remove them again.
 """
 import asyncio
 import json
@@ -10,10 +10,15 @@ import unittest
 import uuid
 
 import docker
+from channels.layers import get_channel_layer
+from django.contrib.auth.models import User
+from django.test import TransactionTestCase
 
-from xterm.tests.helpers import ConsumerTestCase, communicator
+from xterm import notifications
+from xterm.tests.helpers import ConsumerTestCase, communicator, token_protocol, access_token
 
-LIVE = os.environ.get("DOCKER_LIVE_TESTS") == "1"
+LIVE = os.environ.get("LIVE_TESTS") == "1"
+SKIP_REASON = "set LIVE_TESTS=1 to run against a real Docker daemon and Redis"
 # An image with bash and one without (the console falls back to sh there).
 IMAGE_WITH_BASH = os.environ.get("LIVE_TEST_IMAGE", "debian:trixie-slim")
 IMAGE_WITHOUT_BASH = os.environ.get("LIVE_TEST_IMAGE_NO_BASH", "alpine:3.22")
@@ -22,7 +27,22 @@ LIST_SHELLS = ["sh", "-c", 'for p in /proc/[0-9]*; do n=$(cat $p/comm 2>/dev/nul
                            'case "$n" in bash|sh) echo "${p#/proc/} $n";; esac; done']
 
 
-@unittest.skipUnless(LIVE, "set DOCKER_LIVE_TESTS=1 to run against a real Docker daemon")
+@unittest.skipUnless(LIVE, SKIP_REASON)
+class LiveNotificationTests(TransactionTestCase):
+    """With the Redis channel layer from settings, not the in-memory one."""
+
+    async def test_an_idle_listener_still_gets_notifications(self):
+        # redis-py 8's default 5 s read timeout used to kill idle listeners after ~5 s.
+        user = await asyncio.to_thread(User.objects.create_user, "member", password="pw")
+        ws = communicator("/ws/notifications/", ["notifications", token_protocol(access_token(user))])
+        self.assertTrue((await ws.connect())[0])
+        await asyncio.sleep(12)
+        await get_channel_layer().group_send(notifications.GROUP, {"type": "send_notification", "message": "still here"})
+        self.assertEqual(await ws.receive_json_from(timeout=5), {"message": "still here"})
+        await ws.disconnect()
+
+
+@unittest.skipUnless(LIVE, SKIP_REASON)
 class LiveConsoleTests(ConsumerTestCase):
     def setUp(self):
         super().setUp()

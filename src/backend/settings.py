@@ -208,7 +208,11 @@ CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
         "CONFIG": {
-            "hosts": [REDIS_URL],
+            # redis-py 8 gives every connection a 5-second read timeout by default, the same 5 seconds
+            # channels_redis blocks in BZPOPMIN while it waits for messages, so idle WebSockets died
+            # with "Timeout reading from redis" and missed notifications. None is the redis-py 7
+            # default. Remove it once channels_redis sets a timeout of its own.
+            "hosts": [{"address": REDIS_URL, "socket_timeout": None}],
         },
     },
 }

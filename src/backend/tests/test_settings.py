@@ -67,3 +67,15 @@ class EnvHelperTests(SimpleTestCase):
             os.environ.pop("ITEMS", None)
             self.assertEqual(env_list("ITEMS", "*"), ["*"])
             self.assertEqual(env_list("ITEMS"), [])
+
+
+class ChannelLayerTests(SimpleTestCase):
+    def test_redis_reads_wait_longer_than_the_channel_layer_blocks(self):
+        from channels_redis.core import RedisChannelLayer
+        from channels_redis.utils import create_pool
+        from django.conf import settings
+
+        config = settings.CHANNEL_LAYERS["default"]["CONFIG"]
+        pool = create_pool(dict(config["hosts"][0]))
+        timeout = pool.connection_class(**pool.connection_kwargs).socket_timeout  # does not connect
+        self.assertTrue(timeout is None or timeout > RedisChannelLayer.brpop_timeout, timeout)
