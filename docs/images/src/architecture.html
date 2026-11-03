@@ -1,0 +1,140 @@
+<!doctype html>
+<!--
+  How django-docker-gui is put together: browser -> the d-docker-web container (Django + Daphne,
+  rqworker, the Terminal page's bash) -> Redis and the Docker socket.
+  Render the light and dark versions (#dark picks the dark theme) with a Chromium-based browser:
+    msedge --headless=new --hide-scrollbars --force-device-scale-factor=2 --window-size=960,650
+           --default-background-color=00000000 --virtual-time-budget=5000
+           --screenshot=architecture-dark.png "file:///…/architecture.html#dark"
+  then convert to WebP (magick architecture-dark.png -quality 90 architecture-dark.webp).
+  Names, ports and paths come from docker-compose.yml, supervisord.conf and src/.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>django-docker-gui architecture</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=block" rel="stylesheet">
+<link rel="stylesheet" href="diagram.css">
+<style>
+  body, .frame { width: 960px; height: 650px; }
+  #browser { left: 32px; top: 196px; width: 164px; }
+  #box { left: 300px; top: 124px; width: 396px; height: 438px; }
+  #web { left: 320px; top: 164px; width: 356px; }
+  #shell { left: 320px; top: 388px; width: 172px; }
+  #worker { left: 504px; top: 388px; width: 172px; }
+  #redis { left: 748px; top: 136px; width: 180px; }
+  #docker { left: 748px; top: 318px; width: 180px; }
+  #ctrs { left: 748px; top: 494px; width: 180px; }
+  .list { margin: 8px 0 0; padding: 0; list-style: none; font-size: 12px; color: var(--muted); line-height: 1.55; }
+  .list li { position: relative; padding-left: 12px; } .list li::before { content: "›"; position: absolute; left: 0; color: var(--wire-ink); }
+  .list code { font-size: 11px; }
+  .boxfoot { position: absolute; left: 320px; top: 530px; font-size: 11.5px; color: var(--muted); }
+  .boxfoot code { font-size: 11px; }
+  .mini { display: flex; gap: 6px; margin-top: 9px; flex-wrap: wrap; }
+  .mini span { font-family: "JetBrains Mono", Consolas, monospace; font-size: 11px; padding: 3px 7px; border-radius: 7px;
+               border: 1px solid var(--line); background: var(--chip); display: inline-flex; align-items: center; gap: 5px; }
+  .mini i { width: 7px; height: 7px; border-radius: 50%; background: var(--green); }
+  .mini i.off { background: var(--wire); }
+  .sm .title { font-size: 15px; }
+  code, .mono, .chip { font-variant-ligatures: none; }
+  .sm .sub { font-size: 11.5px; }
+</style>
+</head>
+<body>
+<script>if (location.hash.includes('dark')) document.documentElement.className = 'dark';</script>
+<div class="frame">
+  <div class="dots"></div>
+
+  <header>
+    <div class="mark">
+      <svg width="30" height="30" viewBox="0 0 30 30" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="4" width="24" height="17" rx="3"/>
+        <path d="M8.5 10.5l3 2.5-3 2.5M14.5 15.5h5"/>
+        <path d="M10 26h10M15 21v5"/>
+      </svg>
+    </div>
+    <div>
+      <h1>django-docker-gui</h1>
+      <p class="tag">One <b>web container</b> with the Docker socket, <b>Redis</b> for jobs and notifications.</p>
+    </div>
+  </header>
+  <div class="pip"><span>$</span>docker compose up -d</div>
+
+  <svg class="wires" width="960" height="650">
+    <!-- browser <-> web -->
+    <path class="wire solid" d="M196 236 H314"/><path class="head" d="M320 236 l-9 -5 v10 z"/>
+    <path class="wire reply" d="M320 306 H202"/><path class="head" d="M196 306 l9 -5 v10 z"/>
+    <!-- the container <-> redis -->
+    <path class="wire solid" d="M696 196 H742"/><path class="head" d="M748 196 l-9 -5 v10 z"/>
+    <path class="wire reply" d="M748 226 H702"/><path class="head" d="M696 226 l9 -5 v10 z"/>
+    <!-- the container -> docker -->
+    <path class="wire solid" d="M696 384 H742"/><path class="head" d="M748 384 l-9 -5 v10 z"/>
+    <!-- docker -> containers -->
+    <path class="wire solid" d="M838 460 V488"/><path class="head" d="M838 494 l-5 -9 h10 z"/>
+  </svg>
+  <div class="wl" style="left: 204px; top: 196px;">HTTP <code>/api/…</code><br>Bearer JWT</div>
+  <div class="wl" style="left: 204px; top: 246px;">WebSocket <code>/ws/…</code><br><code>token.&lt;base64&gt;</code></div>
+  <div class="wl" style="left: 204px; top: 314px;">terminal output,<br>pull progress,<br>job events</div>
+  <div class="wl" style="left: 700px; top: 172px;">jobs</div>
+  <div class="wl" style="left: 700px; top: 232px;">events</div>
+  <div class="wl" style="left: 700px; top: 360px;">API</div>
+
+  <div class="node" id="browser">
+    <div class="label c-blue"><i></i>You</div>
+    <div class="title sm">Browser</div>
+    <div class="sub"><code>localhost:8000</code></div>
+    <ul class="list">
+      <li>Containers, Images, Docker Hub, Terminal</li>
+      <li>terminals in <code>xterm.js</code> 6</li>
+      <li>access + refresh JWT in localStorage</li>
+    </ul>
+  </div>
+
+  <div class="node ghost" id="box">
+    <div class="label c-teal"><i></i>Container <code style="text-transform: none; letter-spacing: 0;">d-docker-web</code> <span class="type">supervisord</span></div>
+  </div>
+
+  <div class="node" id="web">
+    <div class="label c-green"><i></i>Web <span class="type">:8000</span></div>
+    <div class="title sm">Django <code style="font-size: 14px;">runserver</code> on Daphne</div>
+    <div class="sub">pages, REST API and WebSockets in one process; every call needs the JWT</div>
+    <div class="chips">
+      <span class="chip">/api/containers</span><span class="chip">/api/images</span><span class="chip">/api/browse</span>
+      <span class="chip">/ws/console/</span><span class="chip">/ws/terminal/</span><span class="chip">/ws/pull-image/</span><span class="chip">/ws/notifications/</span>
+    </div>
+  </div>
+
+  <div class="node sm" id="worker">
+    <div class="label c-red"><i></i>Jobs</div>
+    <div class="title mono" style="font-size: 13.5px;">rqworker default</div>
+    <div class="sub">start, stop, restart, remove; run and remove images</div>
+  </div>
+
+  <div class="node sm" id="shell">
+    <div class="label c-purple"><i></i>Terminal page</div>
+    <div class="title">bash on a pty</div>
+    <div class="sub">a shell in this container itself, for superusers</div>
+  </div>
+  <div class="boxfoot"><code>./src</code> is mounted for hot reload; users live in <code>src/db.sqlite3</code></div>
+
+  <div class="node sm" id="redis">
+    <div class="label c-red"><i></i>Redis <span class="type">redis:alpine</span></div>
+    <div class="title mono" style="font-size: 13.5px;">d-docker-redis</div>
+    <div class="sub">the web queues jobs, <code>rqworker</code> takes them; job events go back to the pages through a Channels group</div>
+  </div>
+
+  <div class="node sm" id="docker">
+    <div class="label c-teal"><i></i>Docker</div>
+    <div class="title">Docker daemon</div>
+    <div class="sub"><code>/var/run/docker.sock</code> from the host: list, exec, attach, pull, and Docker Hub search</div>
+  </div>
+
+  <div class="node sm" id="ctrs">
+    <div class="label c-green"><i></i>Your containers</div>
+    <div class="mini"><span><i></i>web</span><span><i></i>cache</span><span><i class="off"></i>job-runner</span></div>
+    <div class="sub"><code>d-docker-web</code> is one of them</div>
+  </div>
+</div>
+</body>
+</html>

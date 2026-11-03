@@ -1,0 +1,118 @@
+<!doctype html>
+<!--
+  What the Start / Stop / Restart / Remove buttons do: an RQ job, and notifications back to every
+  open page. Plus the Docker Hub page's search and pull.
+  Render the light and dark versions (#dark picks the dark theme) with a Chromium-based browser:
+    msedge --headless=new --hide-scrollbars --force-device-scale-factor=2 --window-size=960,650
+           --default-background-color=00000000 --virtual-time-budget=5000
+           --screenshot=jobs-dark.png "file:///…/jobs.html#dark"
+  then convert to WebP (magick jobs-dark.png -quality 90 jobs-dark.webp).
+  Endpoints, events and messages come from src/xterm/views.py, task.py, notifications.py,
+  consumers.py and src/static/js/containers.js, browse.js.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>django-docker-gui jobs and notifications</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=block" rel="stylesheet">
+<link rel="stylesheet" href="diagram.css">
+<style>
+  body, .frame { width: 960px; height: 650px; }
+  .lane { position: absolute; top: 116px; width: 168px; margin-left: -84px; text-align: center; padding: 9px 8px; }
+  .lane .label { justify-content: center; }
+  .lane .sub { margin-top: 3px; font-size: 11.5px; }
+  .life { stroke: var(--line); stroke-width: 1.5; stroke-dasharray: 2 5; }
+  .msg { position: absolute; font-size: 12px; color: var(--ink); white-space: nowrap; line-height: 1.3;
+         background: var(--bg); padding: 1px 6px; border-radius: 6px; }
+  .msg code { font-size: 11.5px; }
+  .msg.reply { color: var(--muted); }
+  .msg .num { width: 18px; height: 18px; font-size: 10.5px; vertical-align: 1px; margin-right: 2px; }
+  .note2 { position: absolute; font-size: 11px; color: var(--muted); white-space: nowrap; line-height: 1.35; background: var(--bg); padding: 0 4px; border-radius: 4px; }
+  .note2 code { font-size: 10.5px; }
+  .wire.reply { stroke-dasharray: 4 5; }
+  .fail { color: var(--red); font-weight: 600; }
+  code { font-variant-ligatures: none; }
+</style>
+</head>
+<body>
+<script>if (location.hash.includes('dark')) document.documentElement.className = 'dark';</script>
+<div class="frame">
+  <div class="dots"></div>
+
+  <header>
+    <div class="mark">
+      <svg width="30" height="30" viewBox="0 0 30 30" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="4" width="24" height="17" rx="3"/>
+        <path d="M8.5 10.5l3 2.5-3 2.5M14.5 15.5h5"/>
+        <path d="M10 26h10M15 21v5"/>
+      </svg>
+    </div>
+    <div>
+      <h1>Buttons, jobs and toasts</h1>
+      <p class="tag">Container actions run as <b>jobs</b>; every open page hears how they <b>ended</b>.</p>
+    </div>
+  </header>
+
+  <svg class="wires" id="svg" width="960" height="650"></svg>
+  <div id="layer"></div>
+</div>
+<script>
+  const X = { B: 124, A: 380, W: 636, D: 856 };
+  const lanes = [
+    ['B', 'You', 'c-blue', 'Containers page'],
+    ['A', 'Web', 'c-green', 'Django REST'],
+    ['W', 'Jobs', 'c-red', 'Redis + rqworker'],
+    ['D', 'Docker', 'c-teal', 'docker.sock'],
+  ];
+  // [from, to, y, html, kind]  kind: '' | 'reply'
+  const msgs = [
+    ['B', 'A', 200, '<span class="num">1</span> Restart: <code>POST /api/containers/start-stop-remove</code>'],
+    ['A', 'W', 200, ''],
+    ['A', 'B', 290, '<code>{"task_id"}</code> + <code>WAITING</code>: the row shows "Waiting"', 'reply'],
+    ['W', 'D', 350, '<span class="num">2</span> <code>container.restart()</code>'],
+    ['W', 'B', 412, '<span class="num">3</span> <code>RESTARTED</code> "Container [web] has been restarted": toast, the list reloads', 'reply'],
+    ['W', 'B', 472, '<span class="fail">or</span> <code>FAILED</code> "Could not remove container […]: &lt;the daemon’s reason&gt;": red toast, reload', 'reply'],
+    ['B', 'D', 534, '<span class="num">4</span> Docker Hub: <code>GET /api/browse?q=nginx</code> → the daemon’s <code>docker search</code>'],
+    ['B', 'D', 596, '<span class="num">5</span> Pull: <code>/ws/pull-image/</code> <code>{"image", "version"}</code> → <code>docker pull</code>'],
+  ];
+  const notes = [
+    [X.B + 12, 208, '<code>{"id", "cmd"}</code>; cmd is start, stop, restart or remove (anything else: 400)', 'start'],
+    [X.A + 10, 234, 'queues <code>container_action_task(id, cmd)</code> on Redis', 'start'],
+    [X.D - 6, 358, 'one job type, one table of actions', 'end'],
+    [X.W - 10, 420, 'through the Channels group in Redis, to every open page', 'end'],
+    [X.B + 12, 542, 'up to 25 results: name, description, stars, official', 'start'],
+    [X.B + 12, 604, 'progress lines stream into the dialog; an empty version means <code>latest</code>', 'start'],
+  ];
+
+  const svg = document.getElementById('svg'), layer = document.getElementById('layer');
+  const NS = 'http://www.w3.org/2000/svg';
+  const add = (tag, attrs) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); svg.appendChild(e); return e; };
+  for (const [k, label, color, sub] of lanes) {
+    add('line', { class: 'life', x1: X[k], y1: 170, x2: X[k], y2: 628 });
+    const d = document.createElement('div');
+    d.className = 'node lane'; d.style.left = X[k] + 'px';
+    d.innerHTML = `<div class="label ${color}"><i></i>${label}</div><div class="sub"><b>${sub}</b></div>`;
+    layer.appendChild(d);
+  }
+  for (const [f, t, y, html, kind] of msgs) {
+    const x1 = X[f], x2 = X[t], dir = x2 > x1 ? 1 : -1;
+    add('path', { class: 'wire ' + (kind === 'reply' ? 'reply' : 'solid'), d: `M${x1} ${y} H${x2 - dir * 7}` });
+    add('path', { class: 'head', d: `M${x2} ${y} l${-dir * 9} -5 v10 z` });
+    if (!html) continue;
+    const m = document.createElement('div');
+    m.className = 'msg' + (kind === 'reply' ? ' reply' : '');
+    m.innerHTML = html;
+    layer.appendChild(m);
+    const w = m.offsetWidth;
+    const left = Math.min(Math.min(x1, x2) + 8, 952 - w);
+    m.style.left = left + 'px'; m.style.top = (y - 21) + 'px';
+  }
+  for (const [x, y, html, align] of notes) {
+    const n = document.createElement('div');
+    n.className = 'note2'; n.innerHTML = html; layer.appendChild(n);
+    n.style.left = (align === 'end' ? x - n.offsetWidth : x) + 'px'; n.style.top = y + 'px';
+  }
+</script>
+</body>
+</html>
