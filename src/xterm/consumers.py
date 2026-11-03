@@ -9,6 +9,7 @@ from asgiref.sync import async_to_sync
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.layers import get_channel_layer
 
+from xterm.docker_client import docker_client
 from xterm.permissions import can_manage_docker, can_open_host_shell
 from xterm.terminal import ContainerAttach, ContainerShell, ContainerUnavailable, HostShell, OutputDecoder
 from xterm.ws_auth import read_subprotocols, user_for_token
@@ -21,6 +22,9 @@ CLOSE_NOT_LOGGED_IN = 4001
 CLOSE_FORBIDDEN = 4002
 CLOSE_CONTAINER_UNAVAILABLE = 4004
 CLOSE_SHELL_FAILED = 4005
+
+# Tag pulled when the Docker Hub page leaves the version empty (the same default as `docker pull`).
+DEFAULT_TAG = "latest"
 
 
 def parse_message(text_data: Optional[str]) -> tuple[Optional[str], dict]:
@@ -186,49 +190,41 @@ class TerminalConsumer(TerminalSessionConsumer):
 
 
 class PullConsumer(AuthenticatedConsumer):
-    async def receive(self, text_data):
-        message = json.loads(text_data)
-        # Route message to appropriate handler
-        action = message.get('action')
-        payload = message.get('payload')
-        if action == 'pull_image':
-            image_name = payload.get('image', '')
-            image_version = payload.get('version', 'lastest')
-            if image_name and image_version:
-                await self.pull_image_input(image_name, image_version)
+    """The Pull button on the Docker Hub page. `pull_image` with `{"image": "nginx", "version":
+    "1.27"}` streams `{"status": ..., "progress": ...}` messages until the pull ends, then closes."""
 
-    async def send_pull_image_output(self, status, progress):
-        # Call this method when you want to send a "pull_image_output" message
-        await self.send(text_data=json.dumps({
-            'status': status,
-            'progress': progress
-        }))
-
-    async def pull_image_input(self, image_name, image_version):
-        client = docker.APIClient()
-        try:
-            x = client.pull(image_name, stream=True,decode=True,tag=image_version)
-        except docker.errors.APIError as err:
-            print(f"[{type(err)}] {str(err)}")
-            await self.send_pull_image_output(str(err), "")
-            #useless sleep
-            await asyncio.sleep(3)
-            self.close()
+    async def receive(self, text_data=None, bytes_data=None):
+        action, payload = parse_message(text_data)
+        image = payload.get("image")
+        if action != "pull_image" or not isinstance(image, str) or not image.strip():
             return
-
-        for item in x:
-            if "progress" not in item:
-                item["progress"] = ""
-            if "errorDetail" in item:
-                item["status"] = item["errorDetail"]["message"]
-
-            await self.send_pull_image_output(
-                status=item["status"],
-                progress=item["progress"]
-            )
-
-        await asyncio.sleep(1.5)
+        tag = str(payload.get("version") or "").strip() or DEFAULT_TAG
+        await self.pull(image.strip(), tag)
         await self.close()
+
+    async def pull(self, image: str, tag: str):
+        # docker-py blocks while it waits for the daemon, so every step runs in a thread;
+        # otherwise one big pull would freeze every other WebSocket of the server.
+        client = await asyncio.to_thread(docker_client)
+        try:
+            progress = await asyncio.to_thread(client.api.pull, image, tag=tag, stream=True, decode=True)
+            while (item := await asyncio.to_thread(next, progress, None)) is not None:
+                await self.send_json_message(pull_status(item))
+        except docker.errors.APIError as exc:
+            logger.info("pull %s:%s failed: %s", image, tag, exc)
+            await self.send_json_message({"status": str(exc), "progress": ""})
+        finally:
+            await asyncio.to_thread(client.close)
+
+    async def send_json_message(self, message: dict):
+        await self.send(text_data=json.dumps(message))
+
+
+def pull_status(item: dict) -> dict:
+    """One line of `docker pull` progress as the page shows it."""
+    status = item.get("errorDetail", {}).get("message") or item.get("error") or item.get("status", "")
+    return {"status": status, "progress": item.get("progress", "")}
+
 
 class NotificationConsumer(AuthenticatedConsumer):
     room_group_name = 'group_notifications'
