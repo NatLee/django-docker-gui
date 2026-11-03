@@ -1,40 +1,34 @@
-# Handle two or more services
-supervisor
+# Runs the web server and the RQ worker side by side (see supervisord.conf)
+supervisor==4.3.0
 
-# Django
-Django==5.1.4
+# Django (5.2 is the LTS line, supported until April 2028)
+Django==5.2.19
+djangorestframework==3.18.3
+djangorestframework-simplejwt==5.5.1
+drf-yasg==1.21.18
 
-# Django Packages
-django-cors-headers==3.11.0
-django-bootstrap3==21.2
-djangorestframework==3.15.2
-djangorestframework-simplejwt==5.3.1
+# Static files when DEBUG is off
+whitenoise==6.12.0
 
-drf-yasg==1.21.4
-pyparsing==3.0.8
+# Cross-origin requests
+django-cors-headers==4.9.0
 
-whitenoise==6.5.0 # staticfiles
+# Logging
+loguru==0.7.3
 
-# Misc
-loguru
-google-auth
+# Optional Google sign-in (custom_auth)
+google-auth==2.62.0
 
-# Debug
-ipython
-ipdb
-
-# Redis
-django-redis
-redis
-
-# Task scheduler
-django-rq
-rq
+# Background jobs on Redis
+redis==8.1.0
+django-redis==6.0.0
+rq==2.12.0
+django-rq==4.2.0
 
 # Docker SDK
-docker==7.1.0
+docker==7.2.0
 
-# Websocket
-channels==4.0.0
-channels_redis==4.1.0
-daphne==4.0.0
+# WebSockets
+channels==4.3.2
+channels-redis==4.3.0
+daphne==4.2.3
