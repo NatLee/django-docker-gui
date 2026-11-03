@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    name: tests
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      # The image docker-compose.yml builds, so the tests run on the same Python and packages.
+      - name: Build the image
+        run: docker build -t django-docker-gui .
+      - name: Settings refuse to load without DJANGO_SECRET_KEY
+        run: |
+          if docker run --rm django-docker-gui python manage.py check > out.txt 2>&1; then
+            echo "expected manage.py check to fail without DJANGO_SECRET_KEY"; cat out.txt; exit 1
+          fi
+          grep -q "DJANGO_SECRET_KEY is not set" out.txt
+      - name: Tests
+        run: >-
+          docker run --rm -e DJANGO_SECRET_KEY=ci-only-secret-that-is-long-enough-for-hs256
+          django-docker-gui sh -c "python manage.py collectstatic --noinput -v 0 && python manage.py test -v 2"
+
+  startup:
+    name: start with docker compose, then use it
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - name: Start the stack
+        run: |
+          printf 'DJANGO_SECRET_KEY=%s\n' "$(openssl rand -base64 48)" > .env
+          docker compose up -d --build
+      - name: Wait for the login page
+        run: |
+          for i in $(seq 1 60); do
+            curl -fsS -o /dev/null http://localhost:8000/login && exit 0
+            sleep 2
+          done
+          exit 1
+      - name: Both programs run, debug is off, a superuser can be created
+        run: |
+          docker exec d-docker-web supervisorctl -c /etc/supervisor/conf.d/supervisord.conf status | tee status.txt
+          test "$(grep -c RUNNING status.txt)" = 2
+          docker exec d-docker-web python manage.py shell -c "from django.conf import settings; assert not settings.DEBUG"
+          ./dev-create-superuser.sh ci ci-password-1234
+      - name: Live tests inside the app container (real Docker daemon and Redis)
+        run: docker exec -e LIVE_TESTS=1 d-docker-web python manage.py test xterm.tests.test_live -v 2
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Smoke test through Daphne, like a browser
+        run: |
+          pip install websockets==15.0.1 requests==2.32.5
+          docker run -d --name django-docker-gui-smoke debian:trixie-slim sleep 600
+          python .github/smoke_test.py http://localhost:8000 ci ci-password-1234 "$(docker inspect -f '{{.Id}}' django-docker-gui-smoke)"
+      - name: Logs
+        if: always()
+        run: docker compose logs --no-color | tail -n 200
