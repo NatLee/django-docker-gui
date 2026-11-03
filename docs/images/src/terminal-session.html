@@ -32,7 +32,7 @@
   .wire.reply { stroke-dasharray: 4 5; }
   code { font-variant-ligatures: none; }
   .foot { position: absolute; left: 40px; top: 690px; width: 880px; font-size: 12px; color: var(--muted); line-height: 1.5; }
-  .foot code { font-size: 11px; }
+  .foot code { font-size: 11px; white-space: nowrap; }
   .foot b { color: var(--ink); font-weight: 600; }
 </style>
 </head>
@@ -60,7 +60,7 @@
   <div class="foot">
     <b>Attach</b> uses <code>attach_socket</code> on the container's main process instead: no exec, resizing is ignored (that TTY is
     shared), Docker's stream frames are unwrapped when the container has no TTY, and closing kills nothing.
-    <b>Terminal</b> (<code>/ws/terminal/</code>, superusers only) is the same session with <code>bash</code> on a pty inside <code>d-docker-web</code>.
+    <b>Terminal</b> (<code>/ws/terminal/</code>) is the same session with <code>bash</code> on a pty inside <code>d-docker-web</code>.
   </div>
 </div>
 <script>
@@ -88,7 +88,7 @@
   ];
   const notes = [
     [X.B + 12, 208, 'subprotocols <code>container.&lt;id&gt;</code> + <code>token.&lt;base64 JWT&gt;</code>', 'start'],
-    [X.A + 10, 230, 'SimpleJWT checks signature, expiry, token type and that the user is active', 'start'],
+    [X.A + 10, 230, 'SimpleJWT checks signature, expiry and token type; the user must be an active superuser', 'start'],
     [X.D - 8, 326, '<code>exec_create</code>, TTY: <code>sh -c \'echo $$ > /tmp/django-docker-gui-&lt;uuid&gt;.pid;</code>', 'end'],
     [X.D - 8, 344, '<code>exec bash</code> (or <code>sh</code> when the image has no bash)<code>\'</code>', 'end'],
     [X.C - 6, 396, 'raw stream, no frame headers', 'end'],

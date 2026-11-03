@@ -1,19 +1,19 @@
 """Pages and the JSON API behind them. Pages are plain templates; their scripts check the login
-and call the API with the access token. Every API view needs CanManageDocker."""
+and call the API with the access token. Who may call the API is settled once, for every view, by
+DEFAULT_PERMISSION_CLASSES (backend/access.py): no view sets its own."""
 from contextlib import closing
 
 import docker
 from django.shortcuts import redirect, render
 from django.views import View
 from rest_framework import serializers
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view
 from rest_framework.exceptions import NotFound
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from xterm.docker_client import docker_client
 from xterm.notifications import notify
-from xterm.permissions import CanManageDocker
 from xterm.task import CONTAINER_ACTIONS, container_action_task, remove_image_task, run_image_task
 
 
@@ -39,8 +39,6 @@ class BrowseDockerHubView(APIView):
     """Docker Hub search through the Docker daemon, the same search `docker search` runs. It uses
     the daemon's registry and proxy settings, and needs no Docker Hub URL in this app."""
 
-    permission_classes = (CanManageDocker,)
-
     def get(self, request):
         q = request.GET.get('q', '').strip()
         if not q:
@@ -63,8 +61,6 @@ class BrowseDockerHubView(APIView):
 
 
 class ContainersListView(APIView):
-    permission_classes = (CanManageDocker,)
-
     def get(self, request, format=None):
         with closing(docker_client()) as client:
             containers = [
@@ -82,8 +78,6 @@ class ContainersListView(APIView):
 
 
 class ImagesListView(APIView):
-    permission_classes = (CanManageDocker,)
-
     def get(self, request, format=None):
         with closing(docker_client()) as client:
             images = [
@@ -100,8 +94,6 @@ class ImagesListView(APIView):
 
 class ConsoleView(APIView):
     """What the console page shows above the terminal."""
-
-    permission_classes = (CanManageDocker,)
 
     def get(self, request, id, action):
         with closing(docker_client()) as client:
@@ -135,7 +127,6 @@ def queue(task, *args) -> Response:
 
 
 @api_view(['POST'])
-@permission_classes([CanManageDocker])
 def run_image(request):
     data = ImageRequest(data=request.data)
     data.is_valid(raise_exception=True)
@@ -143,7 +134,6 @@ def run_image(request):
 
 
 @api_view(['POST'])
-@permission_classes([CanManageDocker])
 def remove_image(request):
     data = ImageRequest(data=request.data)
     data.is_valid(raise_exception=True)
@@ -151,7 +141,6 @@ def remove_image(request):
 
 
 @api_view(['POST'])
-@permission_classes([CanManageDocker])
 def start_stop_remove(request):
     data = ContainerActionRequest(data=request.data)
     data.is_valid(raise_exception=True)

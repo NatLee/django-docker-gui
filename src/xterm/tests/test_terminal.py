@@ -48,7 +48,7 @@ def fake_docker(**containers):
 
 class ConsoleTests(ConsumerTestCase):
     async def open_console(self, action, container_id="abc"):
-        ws = communicator("/ws/console/", self.protocols(self.member, f"container.{container_id}"))
+        ws = communicator("/ws/console/", self.protocols(self.admin, f"container.{container_id}"))
         connected, subprotocol = await ws.connect()
         self.assertTrue(connected)
         self.assertEqual(subprotocol, f"container.{container_id}")

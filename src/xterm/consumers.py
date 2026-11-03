@@ -7,9 +7,9 @@ from typing import Callable, Optional
 import docker
 from channels.generic.websocket import AsyncWebsocketConsumer
 
+from backend.access import may_use_app
 from xterm import notifications
 from xterm.docker_client import docker_client
-from xterm.permissions import can_manage_docker, can_open_host_shell
 from xterm.terminal import ContainerAttach, ContainerShell, ContainerUnavailable, HostShell, OutputDecoder
 from xterm.ws_auth import read_subprotocols, user_for_token
 
@@ -39,12 +39,10 @@ def parse_message(text_data: Optional[str]) -> tuple[Optional[str], dict]:
 
 
 class AuthenticatedConsumer(AsyncWebsocketConsumer):
-    """Accepts a connection only from a logged-in user that `allowed()` lets in."""
+    """Accepts a connection only from a user the app's access rule lets in (backend/access.py):
+    every consumer derives from this one, none has a rule of its own."""
 
     user = None
-
-    def allowed(self, user) -> bool:
-        return can_manage_docker(user)
 
     async def connect(self):
         offered = read_subprotocols(self.scope.get("subprotocols"))
@@ -53,8 +51,8 @@ class AuthenticatedConsumer(AsyncWebsocketConsumer):
             logger.warning("%s refused: no valid access token", self.scope["path"])
             await self.close(code=CLOSE_NOT_LOGGED_IN)
             return
-        if not self.allowed(user):
-            logger.warning("%s refused for %s: not allowed", self.scope["path"], user)
+        if not may_use_app(user):
+            logger.warning("%s refused for %s: not a superuser", self.scope["path"], user)
             await self.close(code=CLOSE_FORBIDDEN)
             return
         self.user = user
@@ -179,10 +177,7 @@ class ConsoleConsumer(TerminalSessionConsumer):
 
 
 class TerminalConsumer(TerminalSessionConsumer):
-    """The Terminal page: bash inside this app's own container, for superusers."""
-
-    def allowed(self, user) -> bool:
-        return can_open_host_shell(user)
+    """The Terminal page: bash inside this app's own container."""
 
     async def connected(self):
         await self.start_session(HostShell)

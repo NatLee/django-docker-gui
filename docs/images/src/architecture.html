@@ -98,7 +98,7 @@
   <div class="node" id="web">
     <div class="label c-green"><i></i>Web <span class="type">:8000</span></div>
     <div class="title sm">Django <code style="font-size: 14px;">runserver</code> on Daphne</div>
-    <div class="sub">pages, REST API and WebSockets in one process; every call needs the JWT</div>
+    <div class="sub">pages, REST API and WebSockets in one process; every call needs a superuser's JWT</div>
     <div class="chips">
       <span class="chip">/api/containers</span><span class="chip">/api/images</span><span class="chip">/api/browse</span>
       <span class="chip">/ws/console/</span><span class="chip">/ws/terminal/</span><span class="chip">/ws/pull-image/</span><span class="chip">/ws/notifications/</span>
@@ -114,7 +114,7 @@
   <div class="node sm" id="shell">
     <div class="label c-purple"><i></i>Terminal page</div>
     <div class="title">bash on a pty</div>
-    <div class="sub">a shell in this container itself, for superusers</div>
+    <div class="sub">a shell in this container itself</div>
   </div>
   <div class="boxfoot"><code>./src</code> is mounted for hot reload; users live in <code>src/db.sqlite3</code></div>
 

@@ -30,6 +30,7 @@ class ConsumerTestCase(TransactionTestCase):
     def setUp(self):
         self.admin = User.objects.create_superuser("admin", password="pw")
         self.member = User.objects.create_user("member", password="pw")
+        self.staff = User.objects.create_user("staff", password="pw", is_staff=True)
 
     def protocols(self, user, name="test"):
         return [name, token_protocol(access_token(user))]

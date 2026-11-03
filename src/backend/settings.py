@@ -51,26 +51,14 @@ ALLOWED_HOSTS = env_list("DJANGO_ALLOWED_HOSTS", "*")
 REDIS_URL = os.environ.get("REDIS_URL", "redis://redis:6379")
 
 
-# -------------- START - Google Auth Setting --------------
-SECURE_REFERRER_POLICY = "no-referrer-when-downgrade"
-# SECURE_CROSS_ORIGIN_OPENER_POLICY = "same-origin-allow-popups"
-SECURE_CROSS_ORIGIN_OPENER_POLICY = None
-# Google sign-in (POST /api/auth/google/token) is off unless GOOGLE_CLIENT_ID is set. Accounts it
-# creates can reach the Docker socket like any other, so only e-mail domains listed in
-# GOOGLE_ALLOWED_DOMAINS may sign up (none by default).
-SOCIAL_GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "").strip()
-LOGIN_REDIRECT_URL = "/"
-VALID_REGISTER_DOMAINS = env_list("GOOGLE_ALLOWED_DOMAINS")
-# --------------- END - Google Auth Setting -----------------
-
-
 # Application definition
 INSTALLED_APPS = [
     # websocket
     "daphne",
     "channels",
     # django
-    'django.contrib.admin',
+    # Django admin, for superusers only (see backend/access.py)
+    'backend.access.SuperuserAdminConfig',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
@@ -83,7 +71,6 @@ INSTALLED_APPS = [
     'django_rq',
     # apps
     "custom_jwt",
-    "custom_auth",
     "login",
     'xterm',
 ]
@@ -242,10 +229,9 @@ REST_FRAMEWORK = {
         # 支援一般session進行後台登入
         "rest_framework.authentication.SessionAuthentication",
     ],
-    "DEFAULT_PERMISSION_CLASSES": (
-        # restframework的API必須登入才可使用
-        "rest_framework.permissions.IsAuthenticated",
-    ),
+    # The one access rule (backend/access.py): every API view is for active superusers only.
+    # Views don't set their own permission_classes.
+    "DEFAULT_PERMISSION_CLASSES": ("backend.access.SuperusersOnly",),
     # 使用JSON來render API而非HTML界面
     "DEFAULT_RENDERER_CLASSES": ("rest_framework.renderers.JSONRenderer",),
 }
@@ -270,7 +256,8 @@ SIMPLE_JWT = {
     "AUTH_HEADER_NAME": "HTTP_AUTHORIZATION",
     "USER_ID_FIELD": "id",
     "USER_ID_CLAIM": "user_id",
-    "USER_AUTHENTICATION_RULE": "rest_framework_simplejwt.authentication.default_user_authentication_rule",
+    # Only superusers get tokens, at login and at refresh (backend/access.py).
+    "USER_AUTHENTICATION_RULE": "backend.access.may_use_app",
     "AUTH_TOKEN_CLASSES": ("rest_framework_simplejwt.tokens.AccessToken",),
     "TOKEN_TYPE_CLAIM": "token_type",
     "TOKEN_USER_CLASS": "rest_framework_simplejwt.models.TokenUser",

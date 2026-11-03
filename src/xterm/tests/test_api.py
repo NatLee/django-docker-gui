@@ -16,7 +16,7 @@ def fake_container(id, name, status, cmd, tags):
 
 class ApiTests(TestCase):
     def setUp(self):
-        user = User.objects.create_user("member", password="pw")
+        user = User.objects.create_superuser("admin", password="pw")
         self.auth = {"HTTP_AUTHORIZATION": f"Bearer {AccessToken.for_user(user)}"}
         self.client_docker = FakeClient()
         self.client_docker.info = lambda: {"Containers": 2}
@@ -90,7 +90,7 @@ class ApiTests(TestCase):
 
 class DockerHubSearchTests(TestCase):
     def setUp(self):
-        user = User.objects.create_user("member", password="pw")
+        user = User.objects.create_superuser("admin", password="pw")
         self.auth = {"HTTP_AUTHORIZATION": f"Bearer {AccessToken.for_user(user)}"}
         self.docker = FakeClient()
         self.docker.images.search = mock.Mock(return_value=[
