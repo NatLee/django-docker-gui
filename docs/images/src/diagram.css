@@ -1,0 +1,68 @@
+/* Look of the diagrams in this README: the palette and parts of the Dev Dock family diagrams
+   (dev-dock-manager grew out of this project). `#dark` in the URL switches to the dark theme. */
+:root {
+  --bg: #ffffff; --bg2: #f6f8fa; --ink: #1f2328; --muted: #59636e; --line: #d1d9e0; --card: #ffffff;
+  --blue: #0969da; --green: #1a7f37; --red: #cf222e; --orange: #bc4c00; --purple: #8250df; --teal: #1b7c83;
+  --shadow: 0 1px 2px rgba(31,35,40,.06), 0 6px 18px rgba(31,35,40,.06);
+  --tint1: rgba(9,105,218,.10); --tint2: rgba(130,80,223,.07); --wire: #afb8c1; --wire-ink: #59636e;
+  --chip: #f6f8fa;
+}
+.dark {
+  --bg: #0d1117; --bg2: #151b23; --ink: #f0f6fc; --muted: #9198a1; --line: #3d444d; --card: #151b23;
+  --blue: #4493f8; --green: #3fb950; --red: #f85149; --orange: #db6d28; --purple: #ab7df8; --teal: #39c5cf;
+  --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35);
+  --tint1: rgba(68,147,248,.16); --tint2: rgba(171,125,248,.10); --wire: #656c76; --wire-ink: #9198a1;
+  --chip: #212830;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: transparent; }
+body { font-family: Inter, "Segoe UI", sans-serif; color: var(--ink); }
+.frame { position: relative; border-radius: 22px; overflow: hidden; border: 1px solid var(--line);
+         background: radial-gradient(560px 320px at 94% 4%, var(--tint1), transparent 70%),
+                     radial-gradient(460px 280px at 2% 100%, var(--tint2), transparent 70%), var(--bg); }
+.dots { position: absolute; inset: 0; opacity: .55;
+        background-image: radial-gradient(var(--line) 1px, transparent 1.2px); background-size: 22px 22px;
+        -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 55%, #000 100%); }
+
+header { position: absolute; left: 40px; top: 32px; display: flex; align-items: center; gap: 16px; }
+.mark { width: 50px; height: 50px; border-radius: 14px; flex: none;
+        background: linear-gradient(140deg, #1f6feb, #1b7c83 55%, #2da44e);
+        display: grid; place-items: center; box-shadow: var(--shadow); }
+h1 { margin: 0; font-size: 34px; font-weight: 800; letter-spacing: -0.03em; line-height: 1; }
+.tag { margin: 7px 0 0; font-size: 16px; color: var(--muted); letter-spacing: -0.005em; }
+.tag b { color: var(--ink); font-weight: 600; }
+.pip { position: absolute; right: 40px; top: 38px; font-family: "JetBrains Mono", Consolas, monospace; font-size: 13px;
+       padding: 7px 13px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); box-shadow: var(--shadow); }
+.pip span { color: var(--muted); margin-right: 7px; }
+
+.node { position: absolute; background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+        box-shadow: var(--shadow); padding: 13px 15px; }
+.node.ghost { background: transparent; box-shadow: none; border-style: dashed; }
+.label { font-size: 10.5px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--muted);
+         display: flex; align-items: center; gap: 7px; white-space: nowrap; }
+.label i { width: 8px; height: 8px; border-radius: 50%; background: var(--blue); flex: none; }
+.c-blue i { background: var(--blue); } .c-green i { background: var(--green); } .c-red i { background: var(--red); }
+.c-orange i { background: var(--orange); } .c-purple i { background: var(--purple); } .c-teal i { background: var(--teal); }
+.title { font-size: 19px; font-weight: 700; letter-spacing: -0.02em; margin-top: 7px; white-space: nowrap; }
+.title.sm { font-size: 16px; }
+.mono { font-family: "JetBrains Mono", Consolas, monospace; }
+.sub { font-size: 12.5px; color: var(--muted); margin-top: 5px; line-height: 1.45; }
+.sub b { color: var(--ink); font-weight: 600; }
+code, .code { font-family: "JetBrains Mono", Consolas, monospace; font-size: 11.5px; color: var(--ink); }
+.type { margin-left: auto; font-family: "JetBrains Mono", Consolas, monospace; font-size: 11px; letter-spacing: 0;
+        text-transform: none; font-weight: 500; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--ink); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; }
+.chip { font-family: "JetBrains Mono", Consolas, monospace; font-size: 11.5px; padding: 2px 8px; border-radius: 7px;
+        background: var(--chip); border: 1px solid var(--line); white-space: nowrap; }
+.chip.k { color: var(--muted); }
+
+svg.wires { position: absolute; inset: 0; overflow: visible; }
+.wire { fill: none; stroke: var(--wire); stroke-width: 2; stroke-dasharray: 5 6; }
+.wire.solid { stroke-dasharray: none; }
+.head { fill: var(--wire); }
+.wl { position: absolute; font-size: 11.5px; color: var(--wire-ink); white-space: nowrap; background: var(--bg);
+      padding: 1px 6px; border-radius: 6px; line-height: 1.35; }
+.wl code { font-size: 11px; }
+.num { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; font-size: 11px; font-weight: 700;
+       color: #fff; background: var(--ink); flex: none; }
+.dark .num { color: var(--bg); }

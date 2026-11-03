@@ -9,53 +9,58 @@ https://docs.djangoproject.com/en/4.2/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.2/ref/settings/
 """
-import sys
+import os
 from datetime import timedelta
-import logging
 from pathlib import Path
 
-logger = logging.getLogger(__name__)
-
-print("-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-")
+from django.core.exceptions import ImproperlyConfigured
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-print(f"---------- Project DIR: {BASE_DIR}")
-
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
-
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-uye!=@*gjois#e#8u*3law8=d4^&5s0sh-w*+r3_%+x5tn$lru'
 
 
-# ----------------------------- START - DEBUG setting -------------------------------
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
-print(f"---------- Debug mode: {DEBUG}")
-# ------------------------------ END - DEBUG setting --------------------------------
+def env_flag(name: str, default: bool = False) -> bool:
+    """An on/off setting from the environment: 1/true/yes/on (any case) means on."""
+    value = os.environ.get(name)
+    return default if value is None else value.strip().lower() in ("1", "true", "yes", "on")
 
-ALLOWED_HOSTS = ['*']
 
-# -------------- START - CORS Setting --------------
-CORS_ALLOW_ALL_ORIGINS = True
-CORS_ALLOW_CREDENTIALS = True
-CSRF_TRUSTED_ORIGINS = [
-    "http://127.0.0.1",
-    "http://localhost",
-]
-# -------------- END - CORS Setting -----------------
+def env_list(name: str, default: str = "") -> list[str]:
+    """A comma-separated setting from the environment, without empty items."""
+    return [item.strip() for item in os.environ.get(name, default).split(",") if item.strip()]
+
+
+# ----------------------------- START - DEBUG / SECRET_KEY -------------------------------
+# Off unless DJANGO_DEBUG says otherwise: debug pages show settings and stack traces.
+DEBUG = env_flag("DJANGO_DEBUG")
+
+# Signs sessions and the login tokens (SimpleJWT uses it too), so whoever knows it can log in as
+# anyone, and every account can reach the Docker socket. No default, not even for debug mode;
+# docker-compose.yml reads it from .env (see .env.example).
+SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "").strip()
+if not SECRET_KEY:
+    raise ImproperlyConfigured(
+        "DJANGO_SECRET_KEY is not set. Put a long random value in .env (see .env.example)."
+    )
+# ------------------------------ END - DEBUG / SECRET_KEY --------------------------------
+
+# Host names this site answers to. WebSocket connections must come from a page on one of them.
+ALLOWED_HOSTS = env_list("DJANGO_ALLOWED_HOSTS", "*")
+
+# Redis carries the job queue (RQ) and the WebSocket notifications (Channels).
+REDIS_URL = os.environ.get("REDIS_URL", "redis://redis:6379")
 
 
 # -------------- START - Google Auth Setting --------------
 SECURE_REFERRER_POLICY = "no-referrer-when-downgrade"
 # SECURE_CROSS_ORIGIN_OPENER_POLICY = "same-origin-allow-popups"
 SECURE_CROSS_ORIGIN_OPENER_POLICY = None
-SOCIAL_GOOGLE_CLIENT_ID = (
-    "376808175534-d6mefo6b1kqih3grjjose2euree2g3cs.apps.googleusercontent.com"
-)
+# Google sign-in (POST /api/auth/google/token) is off unless GOOGLE_CLIENT_ID is set. Accounts it
+# creates can reach the Docker socket like any other, so only e-mail domains listed in
+# GOOGLE_ALLOWED_DOMAINS may sign up (none by default).
+SOCIAL_GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "").strip()
 LOGIN_REDIRECT_URL = "/"
-VALID_REGISTER_DOMAINS = ["gmail.com"]
+VALID_REGISTER_DOMAINS = env_list("GOOGLE_ALLOWED_DOMAINS")
 # --------------- END - Google Auth Setting -----------------
 
 
@@ -64,7 +69,6 @@ INSTALLED_APPS = [
     # websocket
     "daphne",
     "channels",
-    "channels_redis",
     # django
     'django.contrib.admin',
     'django.contrib.auth',
@@ -88,7 +92,6 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     "whitenoise.middleware.WhiteNoiseMiddleware",
     'django.contrib.sessions.middleware.SessionMiddleware',
-    "corsheaders.middleware.CorsMiddleware",
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -146,7 +149,6 @@ DATABASES = {
         "NAME": SQLITE_DIR,
     }
 }
-print(f"---------- SQLITE DIR: {SQLITE_DIR}")
 # -------------- END - Database Setting --------------
 
 
@@ -175,7 +177,6 @@ AUTH_PASSWORD_VALIDATORS = [
 LANGUAGE_CODE = "en-us"
 TIME_ZONE = "Asia/Taipei"
 USE_I18N = True
-USE_L10N = True
 USE_TZ = True
 APPEND_SLASH = False
 
@@ -184,7 +185,8 @@ APPEND_SLASH = False
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
 
 STATIC_URL = "api/__hidden_statics/"
-STATIC_ROOT = "staticfiles"
+# Filled by `collectstatic` when the container starts; WhiteNoise serves it when DEBUG is off.
+STATIC_ROOT = BASE_DIR / "staticfiles"
 STATICFILES_DIRS = [
     BASE_DIR / "static",
     # other folders containing static files
@@ -197,16 +199,8 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 RQ_QUEUES = {
     'default': {
-        'URL': 'redis://d-docker-redis:6379',  # Adjust the Redis URL as needed.
+        'URL': REDIS_URL,
         'DEFAULT_TIMEOUT': 500,
-        'USE_REDIS_CACHE': 'default',
-    },
-}
-
-CACHES = {
-    'default': {
-        'BACKEND': 'django.core.cache.backends.redis.RedisCache',
-        'LOCATION': 'redis://d-docker-redis:6379',
     },
 }
 
@@ -214,87 +208,29 @@ CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
         "CONFIG": {
-            "hosts": [("d-docker-redis", 6379)],
+            # redis-py 8 gives every connection a 5-second read timeout by default, the same 5 seconds
+            # channels_redis blocks in BZPOPMIN while it waits for messages, so idle WebSockets died
+            # with "Timeout reading from redis" and missed notifications. None is the redis-py 7
+            # default. Remove it once channels_redis sets a timeout of its own.
+            "hosts": [{"address": REDIS_URL, "socket_timeout": None}],
         },
     },
 }
-
-# Default primary key field type
-DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # -------------- START - Log setting --------------
-LOG_ROOT = Path(BASE_DIR) / 'logs'
-LOG_ROOT.mkdir(exist_ok=True)
-
-LOG_TYPES = {
-    'file': 'standard',
-    'database': 'standard',
-    'api': 'api-format',
-    'auth': 'standard',
-}
-
-FORMATTERS = {
-    'standard': {
-        'format': '[%(asctime)s] [%(filename)s:%(lineno)d] [%(module)s:%(funcName)s] [%(levelname)s] - %(message)s'
-    },
-    "simple": {
-        "format": "%(levelname)s %(message)s"
-    },
-    "api-format": {
-        "format": "[%(asctime)s] [%(funcName)s:%(lineno)d] [%(levelname)s] - %(message)s"
-    },
-}
-
-for log_type in LOG_TYPES.keys():
-    log_type_path = Path(BASE_DIR) / 'logs' / log_type
-    log_type_path.mkdir(exist_ok=True)
-
-HANDLERS = {}
-
-for log_type, formatter in LOG_TYPES.items():
-    HANDLERS[log_type] = {
-        'class': 'common.log.InterceptTimedRotatingFileHandler',
-        'filename': f"{LOG_ROOT / log_type / f'{log_type}.log'}",
-        'when': "H",
-        'interval': 1,
-        'backupCount': 1,
-        'formatter': formatter,
-        'encoding': 'utf-8',
-    }
-
+# Everything goes to stdout/stderr, so `docker logs d-docker-web` shows the web server, the
+# WebSocket consumers and the RQ worker in one place.
 LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': True,
-    'formatters': FORMATTERS,
-    'filters': {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "standard": {"format": "[%(asctime)s] [%(levelname)s] %(name)s: %(message)s"},
     },
-    'handlers': HANDLERS,
-    'loggers': {
-        'django': {
-            'handlers': ['file'],
-            'propagate': True,
-            'level': "INFO"
-        },
-        '''
-        'django.db.backends': {
-            'handlers': ['database'],
-            'propagate': False,
-            'level': "INFO"
-        },
-        '''
-        'django.request': {
-            'handlers': ['file'],
-            'propagate': False,
-            'level': "DEBUG"
-        },
-        "custom_auth": {
-            "handlers": ["auth"],
-            "propagate": False,
-            "level": "DEBUG"
-        },
-    }
+    "handlers": {
+        "console": {"class": "logging.StreamHandler", "formatter": "standard"},
+    },
+    "root": {"handlers": ["console"], "level": "DEBUG" if DEBUG else "INFO"},
 }
-
 # --------------- END - Log setting ---------------
 
 
@@ -344,6 +280,3 @@ SIMPLE_JWT = {
     "SLIDING_TOKEN_REFRESH_LIFETIME": timedelta(days=1),
 }
 # -------------- END - SimpleJWT Setting --------------
-
-
-print("-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-")

@@ -1,2 +1,7 @@
 #!/bin/bash
-docker exec -it d-docker-web bash -c 'DJANGO_SUPERUSER_PASSWORD=1234 python manage.py createsuperuser --noinput --username admin --email admin@admin.com'
+# Create a Django superuser in the running container: ./dev-create-superuser.sh [username] [password]
+# Defaults: admin / 1234 (change the password for anything but a local try-out).
+USERNAME=${1:-admin}
+PASSWORD=${2:-1234}
+docker exec -e DJANGO_SUPERUSER_PASSWORD="$PASSWORD" d-docker-web \
+  python manage.py createsuperuser --noinput --username "$USERNAME" --email "$USERNAME@admin.com"

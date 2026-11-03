@@ -1,83 +1,58 @@
+// Console and Attach open the terminal page; the others queue a job.
+const TERMINAL_ACTIONS = ['shell', 'attach'];
 
-function handleContainerAction(html_btn, cmd) {
-    containerID = html_btn.dataset.id;
-    let url = '/api/containers/start-stop-remove'
-    let data = { 'id': containerID, 'cmd': cmd };
-    //console.log(cmd + "->" + containerID);
+function handleContainerAction(containerID, cmd) {
+    if (TERMINAL_ACTIONS.includes(cmd)) {
+        window.open(`/console/${cmd}/${encodeURIComponent(containerID)}`);
+        return;
+    }
+    apiFetch('/api/containers/start-stop-remove', {
+        method: "POST",
+        body: JSON.stringify({ 'id': containerID, 'cmd': cmd }),
+    });
+}
 
-    // Retrieve the JWT from local storage
-    const accessToken = localStorage.getItem('accessToken');
+function actionButton(label, style, cmd, id) {
+    return `<button class="btn ${style} btn-sm me-3" data-cmd="${cmd}" data-id="${escapeHtml(id)}">${label}</button>`;
+}
 
-    fetch(url, {
-       method: "POST",
-       body: JSON.stringify(data),
-       headers: {
-           'Content-Type': 'application/json',
-           'Authorization': `Bearer ${accessToken}`
-      },
-    }).then(response => {
-       if (!response.ok) {
-           window.location.href = '/login';
-       }
-       return response.json();    
-    }).then(data => {
-        console.log(data["task_id"])
-    })
- }
-
- function fetchAndDisplayContainers() {
-
-     // Retrieve the JWT from local storage
-     const accessToken = localStorage.getItem('accessToken');
-
-     fetch('/api/containers', {
-         method: "GET",
-         headers: {
-             'Content-Type': 'application/json',
-             'Authorization': `Bearer ${accessToken}`
-         },
-     })
+function fetchAndDisplayContainers() {
+    apiFetch('/api/containers')
         .then(response => response.json())
         .then(data => {
-            const containers = data.containers;
             const table = document.getElementById('containerTableBody');
             table.innerHTML = '';
 
-            containers.forEach(item => {
+            data.containers.forEach(item => {
                 let actionButtons = '';
 
                 if (item.status === "running") {
-                    actionButtons = `
-                        <button class="btn btn-info btn-sm me-3" onclick="window.open('/console/shell/${item.id}')">Console</button>
-                        <button class="btn btn-info btn-sm me-3" onclick="window.open('/console/attach/${item.id}')">Attach</button>
-                        <button data-id="${item.id}" class="btn btn-warning btn-sm me-3" onclick="handleContainerAction(this, 'restart')">Restart</button>
-                        <button data-id="${item.id}" class="btn btn-warning btn-sm me-3" onclick="handleContainerAction(this, 'stop')">Stop</button>
-                    `;
+                    actionButtons = actionButton('Console', 'btn-info', 'shell', item.id)
+                        + actionButton('Attach', 'btn-info', 'attach', item.id)
+                        + actionButton('Restart', 'btn-warning', 'restart', item.id)
+                        + actionButton('Stop', 'btn-warning', 'stop', item.id);
                 } else {
-                    actionButtons = `
-                        <button data-id="${item.id}" class="btn btn-success btn-sm me-3" onclick="handleContainerAction(this, 'start')">Start</button>
-                        <button data-id="${item.id}" class="btn btn-danger btn-sm" onclick="handleContainerAction(this, 'remove')">Remove</button>
-                    `;
+                    actionButtons = actionButton('Start', 'btn-success', 'start', item.id)
+                        + actionButton('Remove', 'btn-danger', 'remove', item.id);
                 }
 
-                const row = `
+                table.insertAdjacentHTML('beforeend', `
                 <tr>
-                    <td>${item.name}</td>
-                    <td>${item.image_tag || '&lt;none&gt;'}</td>
-                    <td>${item.short_id}</td>
-                    <td>${item.command}</td>
+                    <td>${escapeHtml(item.name)}</td>
+                    <td>${escapeHtml(item.image_tag || '<none>')}</td>
+                    <td>${escapeHtml(item.short_id)}</td>
+                    <td>${escapeHtml(item.command)}</td>
                     <td>
                         <div class='d-flex'>
-                            <span class="btn ${item.status === "running" ? 'btn-success' : 'btn-secondary'} btn-sm" id="${item.id}-span">${item.status}</span>
+                            <span class="btn ${item.status === "running" ? 'btn-success' : 'btn-secondary'} btn-sm">${escapeHtml(item.status)}</span>
                         </div>
                     </td>
                     <td>
-                        <div class='d-flex' id="actions-${item.id}">
+                        <div class='d-flex' id="actions-${escapeHtml(item.id)}">
                             ${actionButtons}
                         </div>
                     </td>
-                </tr>`;
-                table.innerHTML += row;
+                </tr>`);
             });
         })
         .catch(error => {
@@ -85,63 +60,27 @@ function handleContainerAction(html_btn, cmd) {
         });
 }
 
-
-function notificationWebsocket() {
-
-    var ws_scheme = window.location.protocol == "https:" ? "wss" : "ws";
-    var ws_path = ws_scheme + '://' + window.location.host + "/ws/notifications/";
-    var socket = new WebSocket(ws_path);
-
-    // Update the status of the WebSocket connection
-    function updateWebSocketStatus(isConnected) {
-        const statusElement = document.getElementById("websocket-status");
-        if (statusElement) {
-            statusElement.classList.toggle('connected', isConnected);
-            statusElement.classList.toggle('disconnected', !isConnected);
+function onNotification(message) {
+    if (message.action === "WAITING") {
+        createToastAlert(message.details, false);
+        // block the row's actions until the job reports back
+        const record = document.getElementById("actions-" + message.data.container_id);
+        if (record) {
+            record.innerHTML = '<span class="btn btn-warning btn-sm me-3">Waiting</span>';
         }
+    } else if (JOB_DONE_EVENTS.includes(message.action)) {
+        createToastAlert(message.details, message.action === "FAILED");
+        fetchAndDisplayContainers();
     }
-
-    socket.onopen = function () {
-        updateWebSocketStatus(true);
-    };
-
-    socket.onmessage = function (event) {
-        const data = JSON.parse(event.data);
-        console.log('Notification message:', data.message);
-        let action = data.message.action;
-        if (action === "WAITING") {
-            createToastAlert(data.message.details, false);
-            let containerID = data.message.data.container_id;
-            // get the record from the table by id
-            let record = document.getElementById("actions-" + containerID);
-            // block actions & show the waiting status
-            record.innerHTML = `
-                <span class="btn btn-warning btn-sm me-3">Waiting</span>
-            `;
-        }
-        if (action === "CREATED" || action === "STARTED" || action === "STOPPED" || action === "REMOVED") {
-            createToastAlert(data.message.details, false);
-            fetchAndDisplayContainers();
-        }
-
-    };
-
-    socket.onclose = function (e) {
-        updateWebSocketStatus(false);
-        console.error('Notification WebSocket closed unexpectedly:', e);
-
-        // Reconnect after 3 seconds
-        setTimeout(notificationWebsocket, 3000);
-    };
-
-    // Handle any errors that occur.
-    socket.onerror = function (error) {
-        updateWebSocketStatus(false);
-        console.error('WebSocket Error:', error);
-    };
-
 }
 
-
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('containerTableBody').addEventListener('click', (event) => {
+        const button = event.target.closest('button[data-cmd]');
+        if (button) {
+            handleContainerAction(button.dataset.id, button.dataset.cmd);
+        }
+    });
+});
 document.addEventListener('DOMContentLoaded', fetchAndDisplayContainers);
-document.addEventListener('DOMContentLoaded', notificationWebsocket);
+document.addEventListener('DOMContentLoaded', () => listenForNotifications(onNotification));

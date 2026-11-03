@@ -2,12 +2,9 @@
 
 log
 logs
-backend/staticfiles
+src/staticfiles
 
 *.pid
-
-000*_*.py
-*_initial.py
 
 .vscode
 

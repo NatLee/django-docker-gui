@@ -1,311 +1,62 @@
-<!doctype html>
-<html lang="en">
+{% extends 'base.html' %}
+{% load static %}
 
-<head>
-  <!-- to hide terminal scrollbar-->
-  <style>
-    .xterm-viewport {
-      overflow: hidden !important;
-    }
-  </style>
-  <!-- Required meta tags -->
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+{% block title %}Docker Hub{% endblock %}
 
-  <!-- Bootstrap CSS -->
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet"
-    integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
+{% block head %}{% include 'cdn/xterm.html' %}{% endblock %}
 
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js"
-    integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM"
-    crossorigin="anonymous"></script>
-
-  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
-
-  <!-- using and older version of terminal css to remove xterm-helper-textarea -->
-  <link rel="stylesheet" href="https://unpkg.com/xterm@3.6.0/dist/xterm.css" />
-
-  <script src="https://unpkg.com/xterm@4.11.0/lib/xterm.js"></script>
-  <script src="https://unpkg.com/xterm-addon-fit@0.5.0/lib/xterm-addon-fit.js"></script>
-
-  {% load static %}
-  <script src="{% static 'js/helper.js' %}"></script>
-  <link rel="stylesheet" href="{% static 'styles/main.css' %}">
-
-  <title>Docker Hub</title>
-</head>
-
-<body>
-
-  {% include 'navbar.html' %}
-
-  <div class="search-container">
-
-    <form id="searchForm" method="get" class="row g-3 my-3 ms-sm-3 justify-content-center ">
-      <div class="col-sm-6 col-9">
-        <input type="text" name="q" value="" class="form-control" placeholder="Search Images on Docker Hub">
-      </div>
-      <div class="col-sm-1 col-3">
-        <button type="submit" class="btn btn-primary mb-3">Search</button>
-      </div>
-    </form>
-    <div class="container">
-    </div>
+{% block content %}
+<form id="searchForm" class="row g-3 mb-3 justify-content-center">
+  <div class="col-sm-7 col-9">
+    <input type="text" name="q" value="" class="form-control" placeholder="Search Images on Docker Hub">
   </div>
+  <div class="col-sm-auto col-3">
+    <button type="submit" class="btn btn-primary mb-3">Search</button>
+  </div>
+</form>
+<div id="results"></div>
 
-  <!-- Modal -->
-  <div class="modal fade" id="imageModal" data-bs-backdrop="static" tabindex="-1" aria-labelledby="imageModalLabel"
-    aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-      <div class="modal-content">
-        <div class="modal-header">
-          <!--<h5 class="modal-title" id="imageModalLabel">New message</h5> -->
-          <button type="button" id="btn-close" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-        </div>
-        <div class="modal-body">
-
-          <div class="d-flex">
-
-
-            <div class="d-flex justify-content-center col-6 align-items-center row g-2 ">
-              <div class="col-auto">
-                <label for="imageName" class="col-form-label">Image name: </label>
-              </div>
-              <div class="col-auto">
-                <input id="modal_input" class="form-control" type="text" readonly />
-              </div>
+<div class="modal fade" id="imageModal" data-bs-backdrop="static" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" id="btn-close" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="d-flex">
+          <div class="d-flex justify-content-center col-6 align-items-center row g-2">
+            <div class="col-auto">
+              <label for="modal_input" class="col-form-label">Image name: </label>
             </div>
-
-            <div class="d-flex justify-content-center col-6 align-items-center row g-2">
-              <div class="col-auto">
-                <label class="col-form-label">Version: </label>
-              </div>
-
-              <div class="col-auto">
-                <input id="modal_input_version" class="form-control" type="text" placeholder="latest" />
-              </div>
-
+            <div class="col-auto">
+              <input id="modal_input" class="form-control" type="text" readonly />
             </div>
           </div>
-
-          <div class="d-flex mt-3 justify-content-center">
-            <button id="pullImageBtn" onclick="pull_image()" class="btn btn-primary">Pull</button>
-          </div>
-
-          <div class="py-2 ps-2 pe-3 d-none" style="background-color: black;" id="terminal"></div>
-
-        </div>
-
-        <div class="d-none mb-3 justify-content-evenly" id="modal_footer">
-          <div>
-            <button id="myBtn3" onclick="window.location.href = '/containers'" class="btn btn-primary">Go To
-              Containers</button>
-          </div>
-          <div>
-            <button id="myBtn4" onclick="window.location.href = '/images'" class="btn btn-primary">Go To
-              Images</button>
-          </div>
-          <div>
-            <button id="myBtn5" data-bs-dismiss="modal" class="btn btn-primary">Continue
-              browsing</button>
+          <div class="d-flex justify-content-center col-6 align-items-center row g-2">
+            <div class="col-auto">
+              <label for="modal_input_version" class="col-form-label">Version: </label>
+            </div>
+            <div class="col-auto">
+              <input id="modal_input_version" class="form-control" type="text" placeholder="latest" />
+            </div>
           </div>
         </div>
+
+        <div class="d-flex mt-3 justify-content-center">
+          <button id="pullImageBtn" class="btn btn-primary">Pull</button>
+        </div>
+
+        <div class="py-2 ps-2 pe-3 mt-3 d-none" style="background-color: black;" id="terminal"></div>
+      </div>
+
+      <div class="d-none mb-3 justify-content-evenly" id="modal_footer">
+        <a href="/containers" class="btn btn-primary">Go To Containers</a>
+        <a href="/images" class="btn btn-primary">Go To Images</a>
+        <button data-bs-dismiss="modal" class="btn btn-primary">Continue browsing</button>
       </div>
     </div>
   </div>
+</div>
+{% endblock %}
 
-  <!-- to pass data to modal-->
-  <script type="text/javascript">
-    var imageModal = document.getElementById('imageModal')
-    imageModal.addEventListener('show.bs.modal', function (event) {
-      // Button that triggered the modal
-      var button = event.relatedTarget
-      // Extract info from data-bs-* attributes
-      var recipient = button.getAttribute('data-bs-name')
-
-      var modalBodyInput = imageModal.querySelector('.modal-body input')
-      modalBodyInput.value = recipient
-    })
-  </script>
-
-  <script>
-    document.addEventListener('DOMContentLoaded', function() {
-      const searchForm = document.getElementById('searchForm');
-    
-      searchForm.addEventListener('submit', function(event) {
-        event.preventDefault();
-        const queryValue = document.querySelector('[name="q"]').value;
-        fetchDockerHubData(queryValue);
-      });
-    });
-    
-    async function fetchDockerHubData(query) {
-      // Retrieve the JWT from local storage
-      const accessToken = localStorage.getItem('accessToken');
-
-      const response = await fetch(`/api/browse?q=${encodeURIComponent(query)}`, {
-        method: "GET",
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${accessToken}`
-        }
-      });
-
-      if (!response.ok) {
-        console.error('Failed to fetch data:', response.statusText);
-        return;
-      }
-    
-      const data = await response.json();
-      updateDOM(data.summary);
-    }
-    
-    function updateDOM(summary) {
-      const container = document.querySelector('.container');
-      // Clear existing content
-      container.innerHTML = '';
-    
-      // Build and append new elements
-      summary.forEach(item => {
-        if (item.certification_status !== "certified") {
-          const itemContainer = document.createElement('div');
-          itemContainer.className = 'd-flex justify-content-center';
-    
-          // Determine the image URL
-          const imageUrl = item.logo_url.large || item.logo_url.small || '';
-          let imageHTML = '';
-    
-          // If there is an image URL, create the image element
-          if (imageUrl) {
-            imageHTML = `<img src="${imageUrl}" onerror="this.onerror=null; this.style.display='none';" alt="image" width="60px" height="60px">`;
-          }
-    
-          itemContainer.innerHTML = `
-            <div class="d-flex border-start border-primary border-5 p-4 shadow-lg mb-4 bg-body rounded col-sm-8 col-12">
-              <div class="flex-shrink-0 me-4 align-self-center">
-                ${imageHTML}
-              </div>
-              <div class="col d-flex flex-column">
-                <h5>${item.name}</h5>
-                <p>${item.short_description || 'No description available.'}</p>
-              </div>
-              <div class="flex-shrink-0 d-flex justify-content-center ms-2">
-                <div class="align-self-end">
-                  <button type="button" class="btn btn-md btn-primary text-nowrap" data-bs-toggle="modal" data-bs-target="#imageModal" data-bs-name="${item.name}">Pull</button>
-                </div>
-              </div>
-            </div>
-          `;
-    
-          container.appendChild(itemContainer);
-        }
-      });
-    }
-
-    // first query in page loading
-    fetchDockerHubData('');
-
-    </script>
-
-  <script type="text/javascript">
-
-    var term = new Terminal({
-      cursorBlink: true,
-    });
-
-    const fit = new FitAddon.FitAddon();
-    term.loadAddon(fit);
-
-    open_once_only = true;
-
-    // on modal animation close
-    $('#imageModal').on('hidden.bs.modal', function () {
-      // clear terminal text
-      term.write('\x1b[H\x1b[2J');
-
-      $("#modal_footer").removeClass('d-flex').addClass('d-none');
-      $("#pullImageBtn").removeClass('d-none').addClass('d-flex');
-      $("#terminal").addClass('d-none');
-
-      term.write('\x1b[H\x1b[2J');
-    });
-
-    function fitToscreen() {
-      fit.fit();
-    }
-
-    function debounce(wait_ms) {
-      let timeout;
-      return function () {
-        clearTimeout(timeout);
-        timeout = setTimeout(function () { fitToscreen() }, wait_ms);
-      };
-    }
-
-    const wait_ms = 50;
-    window.onresize = debounce(wait_ms);
-
-    function pull_image() {
-
-      let image = document.getElementById("modal_input").value;
-      let version = document.getElementById("modal_input_version").value;
-
-      if (version === "") {
-        version = "latest";
-      }
-
-      $("#pullImageBtn").removeClass('d-flex').addClass('d-none');
-
-      $("#terminal").removeClass('d-none');
-
-      // open terminal only once
-      if (open_once_only) {
-        term.open(document.getElementById('terminal'));
-        fit.fit()
-        open_once_only = false;
-      }
-
-      var ws_scheme = window.location.protocol == "https:" ? "wss" : "ws";
-      var ws_path = ws_scheme + '://' + window.location.host + "/ws/pull-image/";
-      var socket = new WebSocket(ws_path);
-  
-      // Convert and send a message to the server
-      function sendWebSocketMessage(action, message) {
-          socket.send(JSON.stringify({ action: action, payload: message }));
-      }
-
-      socket.onopen = function () {
-        console.log("WebSocket connection established");
-        term.write("Pulling image, please wait...\r\n")
-        // Handle the connect event
-        $("#btn-close").addClass('disabled');
-        sendWebSocketMessage("pull_image", { "image": image, "version": version })
-    };
-
-    // Handle incoming WebSocket messages
-      socket.onmessage = function (event) {
-        const data = JSON.parse(event.data);
-        console.log(`status: ${data.status}`);
-        console.log(`progress: ${data.progress}`);
-        term.write(data.status + data.progress + "\r\n");
-    };
-
-    socket.onclose = function (event) {
-        if (event.wasClean) {
-          term.write("\r\nDone")
-          term.write(`\r\nConnection closed cleanly, code=${event.code}`);
-        } else {
-          // e.g., WebSocket is closed before the connection is established
-          term.write('Connection died');
-        }
-        $("#modal_footer").removeClass('d-none').addClass('d-flex');
-        $("#btn-close").removeClass('disabled');
-    };
-
-  }
-
-  </script>
-
-</body>
-
-</html>
+{% block scripts %}<script src="{% static 'js/browse.js' %}"></script>{% endblock %}
