@@ -3,7 +3,6 @@ and call the API with the access token. Every API view needs CanManageDocker."""
 from contextlib import closing
 
 import docker
-import requests
 from django.shortcuts import redirect, render
 from django.views import View
 from rest_framework import serializers
@@ -32,20 +31,35 @@ class Page(View):
         return render(request, self.template_name)
 
 
-class BrowseDockerHubView(APIView):
-    permission_classes = (CanManageDocker,)
-    def get(self, request):
-        page_number = request.GET.get('page','1')
-        q = request.GET.get('q','')
+# Results shown on the Docker Hub page (the daemon returns at most 100).
+SEARCH_LIMIT = 25
 
-        url = f'https://hub.docker.com/api/content/v1/products/search?page={page_number}&page_size=15&q={q}&type=image'
-        headers = {'Search-Version': 'v3'}
-        page = requests.get(url, headers=headers)
-        summary = page.json()['summaries']
-        return Response({
-            'summary': summary,
-            'q': q
-        })
+
+class BrowseDockerHubView(APIView):
+    """Docker Hub search through the Docker daemon, the same search `docker search` runs. It uses
+    the daemon's registry and proxy settings, and needs no Docker Hub URL in this app."""
+
+    permission_classes = (CanManageDocker,)
+
+    def get(self, request):
+        q = request.GET.get('q', '').strip()
+        if not q:
+            return Response({'summary': [], 'q': q})
+        with closing(docker_client()) as client:
+            try:
+                results = client.images.search(q, limit=SEARCH_LIMIT)
+            except docker.errors.APIError as exc:
+                return Response({'detail': exc.explanation or str(exc)}, status=502)
+        summary = [
+            {
+                'name': item['name'],
+                'description': item.get('description') or '',
+                'star_count': item.get('star_count', 0),
+                'is_official': bool(item.get('is_official')),
+            }
+            for item in results
+        ]
+        return Response({'summary': summary, 'q': q})
 
 
 class ContainersListView(APIView):

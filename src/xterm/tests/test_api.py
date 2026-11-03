@@ -86,3 +86,37 @@ class ApiTests(TestCase):
                 delay.assert_called_once_with("2e0b81d60597")
                 with self.assertLogs("django.request", "WARNING"):
                     self.assertEqual(self.post(url, {}).status_code, 400)  # was a KeyError, 500
+
+
+class DockerHubSearchTests(TestCase):
+    def setUp(self):
+        user = User.objects.create_user("member", password="pw")
+        self.auth = {"HTTP_AUTHORIZATION": f"Bearer {AccessToken.for_user(user)}"}
+        self.docker = FakeClient()
+        self.docker.images.search = mock.Mock(return_value=[
+            {"name": "nginx", "description": "Official build of Nginx.", "star_count": 21416, "is_official": True},
+            {"name": "bitnami/nginx", "description": None, "star_count": 200, "is_official": False},
+        ])
+        patcher = mock.patch("xterm.views.docker_client", return_value=self.docker)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_searches_through_the_daemon(self):
+        response = self.client.get("/api/browse", {"q": " nginx "}, **self.auth)
+        self.assertEqual(response.json(), {"q": "nginx", "summary": [
+            {"name": "nginx", "description": "Official build of Nginx.", "star_count": 21416, "is_official": True},
+            {"name": "bitnami/nginx", "description": "", "star_count": 200, "is_official": False},
+        ]})
+        self.docker.images.search.assert_called_once_with("nginx", limit=25)
+
+    def test_empty_query_asks_nobody(self):
+        self.assertEqual(self.client.get("/api/browse", **self.auth).json(), {"summary": [], "q": ""})
+        self.docker.images.search.assert_not_called()
+
+    def test_daemon_or_hub_errors_are_502_with_the_reason(self):
+        response = SimpleNamespace(status_code=500, reason="Internal Server Error")
+        self.docker.images.search.side_effect = docker.errors.APIError("500", response=response, explanation="Get https://index.docker.io/v1/search: dial tcp: i/o timeout")
+        with self.assertLogs("django.request", "ERROR"):
+            response = self.client.get("/api/browse", {"q": "nginx"}, **self.auth)
+        self.assertEqual(response.status_code, 502)
+        self.assertEqual(response.json(), {"detail": "Get https://index.docker.io/v1/search: dial tcp: i/o timeout"})

@@ -151,12 +151,11 @@
         }
       });
 
+      const data = await response.json();
       if (!response.ok) {
-        console.error('Failed to fetch data:', response.statusText);
+        document.querySelector('.container').textContent = data.detail || `Search failed (${response.status})`;
         return;
       }
-    
-      const data = await response.json();
       updateDOM(data.summary);
     }
     
@@ -164,41 +163,33 @@
       const container = document.querySelector('.container');
       // Clear existing content
       container.innerHTML = '';
-    
+      if (summary.length === 0) {
+        container.innerHTML = '<p class="text-center text-muted">Type a name and press Search to find images on Docker Hub.</p>';
+        return;
+      }
+
       // Build and append new elements
       summary.forEach(item => {
-        if (item.certification_status !== "certified") {
-          const itemContainer = document.createElement('div');
-          itemContainer.className = 'd-flex justify-content-center';
-    
-          // Determine the image URL
-          const imageUrl = item.logo_url.large || item.logo_url.small || '';
-          let imageHTML = '';
-    
-          // If there is an image URL, create the image element
-          if (imageUrl) {
-            imageHTML = `<img src="${imageUrl}" onerror="this.onerror=null; this.style.display='none';" alt="image" width="60px" height="60px">`;
-          }
-    
-          itemContainer.innerHTML = `
-            <div class="d-flex border-start border-primary border-5 p-4 shadow-lg mb-4 bg-body rounded col-sm-8 col-12">
-              <div class="flex-shrink-0 me-4 align-self-center">
-                ${imageHTML}
-              </div>
-              <div class="col d-flex flex-column">
-                <h5>${item.name}</h5>
-                <p>${item.short_description || 'No description available.'}</p>
-              </div>
-              <div class="flex-shrink-0 d-flex justify-content-center ms-2">
-                <div class="align-self-end">
-                  <button type="button" class="btn btn-md btn-primary text-nowrap" data-bs-toggle="modal" data-bs-target="#imageModal" data-bs-name="${item.name}">Pull</button>
-                </div>
+        const itemContainer = document.createElement('div');
+        itemContainer.className = 'd-flex justify-content-center';
+        const official = item.is_official ? '<span class="badge bg-primary ms-2 align-middle">Official</span>' : '';
+
+        itemContainer.innerHTML = `
+          <div class="d-flex border-start border-primary border-5 p-4 shadow-lg mb-4 bg-body rounded col-sm-8 col-12">
+            <div class="col d-flex flex-column">
+              <h5>${item.name}${official}</h5>
+              <p>${item.description || 'No description available.'}</p>
+              <small class="text-muted">★ ${item.star_count}</small>
+            </div>
+            <div class="flex-shrink-0 d-flex justify-content-center ms-2">
+              <div class="align-self-end">
+                <button type="button" class="btn btn-md btn-primary text-nowrap" data-bs-toggle="modal" data-bs-target="#imageModal" data-bs-name="${item.name}">Pull</button>
               </div>
             </div>
-          `;
-    
-          container.appendChild(itemContainer);
-        }
+          </div>
+        `;
+
+        container.appendChild(itemContainer);
       });
     }
 
