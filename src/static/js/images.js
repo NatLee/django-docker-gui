@@ -15,7 +15,7 @@ function fetchAndDisplayImages() {
             data.images.forEach(item => {
                 table.insertAdjacentHTML('beforeend', `
                 <tr>
-                    <td>${escapeHtml(item.name)}</td>
+                    <td>${escapeHtml(item.name || '<none>')}</td>
                     <td>${escapeHtml(item.short_id)}</td>
                     <td>${escapeHtml(item.size)} MB</td>
                     <td>
