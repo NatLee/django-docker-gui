@@ -5,6 +5,7 @@ from unittest import mock
 import docker
 from channels.layers import get_channel_layer
 
+from xterm import notifications
 from xterm.tests.fakes import FakeClient
 from xterm.tests.helpers import ConsumerTestCase, communicator
 
@@ -83,7 +84,7 @@ class PullTests(ConsumerTestCase):
             ws = communicator("/ws/pull-image/", self.protocols(self.member, "pull-image"))
             self.assertTrue((await ws.connect())[0])
             await ws.send_to(text_data=json.dumps({"action": "pull_image", "payload": {"image": "big"}}))
-            await get_channel_layer().group_send("group_notifications", {"type": "send_notification", "message": "hi"})
+            await get_channel_layer().group_send(notifications.GROUP, {"type": "send_notification", "message": "hi"})
             self.assertEqual(await listener.receive_json_from(timeout=2), {"message": "hi"})
             release.set()
             self.assertEqual(json.loads(await ws.receive_from(timeout=3)), {"status": "done", "progress": ""})

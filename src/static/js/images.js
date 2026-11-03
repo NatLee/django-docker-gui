@@ -1,71 +1,31 @@
-
 function handleImageAction(html_btn, action) {
-    let image_id = html_btn.dataset.id;
-
-    let data = { 'image_id': image_id };
-    let url = action === 'run' ? '/api/images/run' : '/api/images/remove';
-
-    console.log(`${action.charAt(0).toUpperCase() + action.slice(1)} -> ${image_id}`);
-
-    // Retrieve the JWT from local storage
-    const accessToken = localStorage.getItem('accessToken');
-
-    fetch(url, {
-       method: "POST",
-       body: JSON.stringify(data),
-       mode: 'same-origin',
-       headers: {
-           'Content-Type': 'application/json',
-           'Authorization': `Bearer ${accessToken}`
-      },
-    }).then(response => {
-       if (!response.ok) {
-           throw new Error(`HTTP error! status: ${response.status}`);
-       }
-       return response.json();    
-    }).then(data => {
-        console.log(data["task_id"])
-    })
+    const url = action === 'run' ? '/api/images/run' : '/api/images/remove';
+    apiFetch(url, {
+        method: "POST",
+        body: JSON.stringify({ 'image_id': html_btn.dataset.id }),
+    });
 }
 
 function fetchAndDisplayImages() {
-
-    // Retrieve the JWT from local storage
-    const accessToken = localStorage.getItem('accessToken');
-
-    fetch('/api/images', {
-        method: "GET",
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${accessToken}`
-        },
-    })
+    apiFetch('/api/images')
         .then(response => response.json())
         .then(data => {
-            const images = data.images;
             const table = document.getElementById('imageTableBody');
             table.innerHTML = '';
 
-            images.forEach(item => {
-                let actionButtons = '';
-
-                actionButtons = `
-                    <button data-id="${item.short_id}" class="btn btn-success btn-sm me-3" onclick="handleImageAction(this, 'run')">Run</button>
-                    <button data-id="${item.short_id}" class="btn btn-danger btn-sm" onclick="handleImageAction(this, 'remove')">Remove</button>
-                `;
-
-                const row = `
+            data.images.forEach(item => {
+                table.insertAdjacentHTML('beforeend', `
                 <tr>
                     <td>${item.name}</td>
                     <td>${item.short_id}</td>
                     <td>${item.size} MB</td>
                     <td>
                         <div class='d-flex'>
-                            ${actionButtons}
+                            <button data-id="${item.short_id}" class="btn btn-success btn-sm me-3" onclick="handleImageAction(this, 'run')">Run</button>
+                            <button data-id="${item.short_id}" class="btn btn-danger btn-sm" onclick="handleImageAction(this, 'remove')">Remove</button>
                         </div>
                     </td>
-                </tr>`;
-                table.innerHTML += row;
+                </tr>`);
             });
         })
         .catch(error => {
@@ -73,24 +33,12 @@ function fetchAndDisplayImages() {
         });
 }
 
-
-function notificationWebsocket() {
-
-    var socket = openSocket("/ws/notifications/", "notifications");
-
-    socket.onmessage = function (event) {
-        const data = JSON.parse(event.data);
-        console.log('Notification message:', data.message);
-        let action = data.message.action;
-        if (action === "CREATED" || action === "STARTED" || action === "STOPPED" || action === "REMOVED") {
-            createToastAlert(data.message.details, false);
-            fetchAndDisplayImages();
-        }
-
-    };
-
+function onNotification(message) {
+    if (JOB_DONE_EVENTS.includes(message.action)) {
+        createToastAlert(message.details, message.action === "FAILED");
+        fetchAndDisplayImages();
+    }
 }
 
-
 document.addEventListener('DOMContentLoaded', fetchAndDisplayImages);
-document.addEventListener('DOMContentLoaded', notificationWebsocket);
+document.addEventListener('DOMContentLoaded', () => listenForNotifications(onNotification));

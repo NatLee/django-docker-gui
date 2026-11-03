@@ -6,6 +6,7 @@ from django.contrib.auth.models import User
 from django.test import SimpleTestCase
 from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 
+from xterm import notifications
 from xterm.ws_auth import decode_token, read_subprotocols
 from xterm.tests.helpers import ConsumerTestCase, access_token, communicator, token_protocol
 
@@ -94,7 +95,7 @@ class WebSocketLoginTests(ConsumerTestCase):
         ws = communicator("/ws/notifications/", self.protocols(self.member, "notifications"))
         self.assertTrue((await ws.connect())[0])
         await get_channel_layer().group_send(
-            "group_notifications", {"type": "send_notification", "message": {"action": "STARTED"}}
+            notifications.GROUP, {"type": "send_notification", "message": {"action": "STARTED"}}
         )
         self.assertEqual(await ws.receive_json_from(), {"message": {"action": "STARTED"}})
         await ws.disconnect()

@@ -5,10 +5,9 @@ import logging
 from typing import Callable, Optional
 
 import docker
-from asgiref.sync import async_to_sync
 from channels.generic.websocket import AsyncWebsocketConsumer
-from channels.layers import get_channel_layer
 
+from xterm import notifications
 from xterm.docker_client import docker_client
 from xterm.permissions import can_manage_docker, can_open_host_shell
 from xterm.terminal import ContainerAttach, ContainerShell, ContainerUnavailable, HostShell, OutputDecoder
@@ -227,32 +226,16 @@ def pull_status(item: dict) -> dict:
 
 
 class NotificationConsumer(AuthenticatedConsumer):
-    room_group_name = 'group_notifications'
+    """Forwards xterm.notifications messages to the Containers and Images pages."""
 
     async def connected(self):
-        await self.channel_layer.group_add(self.room_group_name, self.channel_name)
+        await self.channel_layer.group_add(notifications.GROUP, self.channel_name)
 
     async def disconnect(self, close_code):
         if self.user is not None:
-            await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
+            await self.channel_layer.group_discard(notifications.GROUP, self.channel_name)
 
-    # Receive message from room group
     async def send_notification(self, event):
-        message = event['message']
+        await self.send(text_data=json.dumps({"message": event["message"]}))
 
-        # Send message to WebSocket
-        await self.send(text_data=json.dumps({
-            'message': message
-        }))
-
-
-def send_notification_to_group(message):
-    channel_layer = get_channel_layer()
-    async_to_sync(channel_layer.group_send)(
-        'group_notifications',  # Must match the group name used in your consumer
-        {
-            'type': 'send_notification',
-            'message': message
-        }
-    )
 

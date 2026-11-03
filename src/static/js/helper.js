@@ -30,6 +30,44 @@ function openSocket(path, name) {
    return new WebSocket(`${scheme}://${window.location.host}${path}`, [name, `token.${token}`]);
 }
 
+// fetch() for the JSON API: sends the access token, and goes to the login page when it's refused.
+async function apiFetch(url, options = {}) {
+   const response = await fetch(url, {
+      ...options,
+      headers: {
+         'Content-Type': 'application/json',
+         'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+         ...(options.headers || {}),
+      },
+   });
+   if (response.status === 401) {
+      window.location.href = '/login';
+   }
+   return response;
+}
+
+// Listens to /ws/notifications/ (job queued, done or failed) and reconnects when it drops.
+// The dot next to the page title (#websocket-status), if there is one, shows the state.
+function listenForNotifications(onMessage) {
+   const socket = openSocket("/ws/notifications/", "notifications");
+   const showStatus = (isConnected) => {
+      const status = document.getElementById("websocket-status");
+      if (status) {
+         status.classList.toggle('connected', isConnected);
+         status.classList.toggle('disconnected', !isConnected);
+      }
+   };
+   socket.onopen = () => showStatus(true);
+   socket.onmessage = (event) => onMessage(JSON.parse(event.data).message);
+   socket.onclose = () => {
+      showStatus(false);
+      setTimeout(() => listenForNotifications(onMessage), 3000);
+   };
+}
+
+// Events that end a job (xterm/notifications.py); after any of them the lists are reloaded.
+const JOB_DONE_EVENTS = ["CREATED", "STARTED", "STOPPED", "RESTARTED", "REMOVED", "FAILED"];
+
 function uniqueID() {
    return Math.random().toString(36).substr(2, 16);
 }
