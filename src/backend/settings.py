@@ -11,18 +11,12 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 import os
 from datetime import timedelta
-import logging
 from pathlib import Path
 
 from django.core.exceptions import ImproperlyConfigured
 
-logger = logging.getLogger(__name__)
-
-print("-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-")
-
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-print(f"---------- Project DIR: {BASE_DIR}")
 
 
 def env_flag(name: str, default: bool = False) -> bool:
@@ -39,7 +33,6 @@ def env_list(name: str, default: str = "") -> list[str]:
 # ----------------------------- START - DEBUG / SECRET_KEY -------------------------------
 # Off unless DJANGO_DEBUG says otherwise: debug pages show settings and stack traces.
 DEBUG = env_flag("DJANGO_DEBUG")
-print(f"---------- Debug mode: {DEBUG}")
 
 # Signs sessions and the login tokens (SimpleJWT uses it too), so whoever knows it can log in as
 # anyone, and every account can reach the Docker socket. No default, not even for debug mode;
@@ -155,7 +148,6 @@ DATABASES = {
         "NAME": SQLITE_DIR,
     }
 }
-print(f"---------- SQLITE DIR: {SQLITE_DIR}")
 # -------------- END - Database Setting --------------
 
 
@@ -225,78 +217,19 @@ CHANNEL_LAYERS = {
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # -------------- START - Log setting --------------
-LOG_ROOT = Path(BASE_DIR) / 'logs'
-LOG_ROOT.mkdir(exist_ok=True)
-
-LOG_TYPES = {
-    'file': 'standard',
-    'database': 'standard',
-    'api': 'api-format',
-    'auth': 'standard',
-}
-
-FORMATTERS = {
-    'standard': {
-        'format': '[%(asctime)s] [%(filename)s:%(lineno)d] [%(module)s:%(funcName)s] [%(levelname)s] - %(message)s'
-    },
-    "simple": {
-        "format": "%(levelname)s %(message)s"
-    },
-    "api-format": {
-        "format": "[%(asctime)s] [%(funcName)s:%(lineno)d] [%(levelname)s] - %(message)s"
-    },
-}
-
-for log_type in LOG_TYPES.keys():
-    log_type_path = Path(BASE_DIR) / 'logs' / log_type
-    log_type_path.mkdir(exist_ok=True)
-
-HANDLERS = {}
-
-for log_type, formatter in LOG_TYPES.items():
-    HANDLERS[log_type] = {
-        'class': 'common.log.InterceptTimedRotatingFileHandler',
-        'filename': f"{LOG_ROOT / log_type / f'{log_type}.log'}",
-        'when': "H",
-        'interval': 1,
-        'backupCount': 1,
-        'formatter': formatter,
-        'encoding': 'utf-8',
-    }
-
+# Everything goes to stdout/stderr, so `docker logs d-docker-web` shows the web server, the
+# WebSocket consumers and the RQ worker in one place.
 LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': True,
-    'formatters': FORMATTERS,
-    'filters': {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "standard": {"format": "[%(asctime)s] [%(levelname)s] %(name)s: %(message)s"},
     },
-    'handlers': HANDLERS,
-    'loggers': {
-        'django': {
-            'handlers': ['file'],
-            'propagate': True,
-            'level': "INFO"
-        },
-        '''
-        'django.db.backends': {
-            'handlers': ['database'],
-            'propagate': False,
-            'level': "INFO"
-        },
-        '''
-        'django.request': {
-            'handlers': ['file'],
-            'propagate': False,
-            'level': "DEBUG"
-        },
-        "custom_auth": {
-            "handlers": ["auth"],
-            "propagate": False,
-            "level": "DEBUG"
-        },
-    }
+    "handlers": {
+        "console": {"class": "logging.StreamHandler", "formatter": "standard"},
+    },
+    "root": {"handlers": ["console"], "level": "DEBUG" if DEBUG else "INFO"},
 }
-
 # --------------- END - Log setting ---------------
 
 
@@ -346,6 +279,3 @@ SIMPLE_JWT = {
     "SLIDING_TOKEN_REFRESH_LIFETIME": timedelta(days=1),
 }
 # -------------- END - SimpleJWT Setting --------------
-
-
-print("-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-")
